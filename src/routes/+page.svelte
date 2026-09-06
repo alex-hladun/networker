@@ -26,12 +26,15 @@
 	];
 
 	const TIME_RANGES = [
+		{ label: '1m', value: 60 * 1000 },
+		{ label: '5m', value: 5 * 60 * 1000 },
 		{ label: '1H', value: 60 * 60 * 1000 },
 		{ label: '6H', value: 6 * 60 * 60 * 1000 },
 		{ label: '24H', value: 24 * 60 * 60 * 1000 },
 		{ label: '7D', value: 7 * 24 * 60 * 60 * 1000 },
 		{ label: '30D', value: 30 * 24 * 60 * 60 * 1000 }
 	];
+	const LIVE_RANGE_MS = 60 * 60 * 1000;
 
 	let status = $state<CollectorStatus | null>(null);
 	let beacons = $state<Beacon[]>([]);
@@ -39,7 +42,7 @@
 	let history = $state<MetricsResponse | null>(null);
 	let search = $state('');
 	let metric = $state<MetricKey>('signalDbm');
-	let range = $state(24 * 60 * 60 * 1000);
+	let range = $state(5 * 60 * 1000);
 	let loading = $state(true);
 	let busyMac = $state<string | null>(null);
 	let errorMessage = $state<string | null>(null);
@@ -56,6 +59,7 @@
 			(item) => !status || item.value <= status.retentionDays * 24 * 60 * 60 * 1000
 		)
 	);
+	const pollIntervalMs = $derived(Math.max(500, (status?.pollIntervalSeconds ?? 30) * 1000));
 
 	async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 		const response = await fetch(url, init);
@@ -167,8 +171,23 @@
 
 	onMount(() => {
 		void refreshAll();
-		const timer = window.setInterval(() => void refreshAll(), 30_000);
-		return () => window.clearInterval(timer);
+	});
+
+	$effect(() => {
+		const delay = range <= LIVE_RANGE_MS ? pollIntervalMs : Math.max(pollIntervalMs, 15_000);
+		let cancelled = false;
+		let timer = 0;
+
+		const tick = async () => {
+			await refreshAll();
+			if (!cancelled) timer = window.setTimeout(() => void tick(), delay);
+		};
+
+		timer = window.setTimeout(() => void tick(), delay);
+		return () => {
+			cancelled = true;
+			window.clearTimeout(timer);
+		};
 	});
 </script>
 
@@ -432,6 +451,8 @@
 							{metric}
 							label={metricConfig.label}
 							unit={metricConfig.unit}
+							from={history?.from}
+							to={history?.to}
 						/>
 						<div class="chart-foot">
 							<span>Bucket: {history?.bucketSeconds ?? status?.pollIntervalSeconds ?? 30}s</span>
@@ -1152,6 +1173,7 @@
 		border: 1px solid var(--border);
 		border-radius: 8px;
 		background: #0a141c;
+		flex-wrap: wrap;
 	}
 
 	.range-picker button,

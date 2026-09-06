@@ -18,6 +18,15 @@ test('selects a fixture beacon and changes the history view', async ({ page }) =
 	await reconnect.click();
 	await expect(reconnect).toBeEnabled();
 	await expect(page.locator('.toast')).toHaveCount(0);
+	await expect(page.getByRole('button', { name: '5m', exact: true })).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
+	await page.getByRole('button', { name: '1m', exact: true }).click();
+	await expect(page.getByRole('button', { name: '1m', exact: true })).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
 	await page.getByRole('button', { name: '1H' }).click();
 	await page.getByRole('button', { name: 'SNR', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'SNR over time' })).toBeVisible();

@@ -163,7 +163,7 @@ export class Repository {
 
 	getMetrics(from: number, to: number, maxPoints = 600): MetricsResponse {
 		const range = Math.max(1, to - from);
-		const bucketMs = Math.max(10_000, Math.ceil(range / maxPoints / 1000) * 1000);
+		const bucketMs = Math.max(500, Math.ceil(range / maxPoints));
 		const rows = this.database.raw
 			.prepare(
 				`SELECT

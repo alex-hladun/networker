@@ -47,6 +47,25 @@ describe('Repository', () => {
 		database.raw.close();
 	});
 
+	it('keeps half-second buckets for a five-minute window', () => {
+		const database = createDatabase(':memory:');
+		const repository = new Repository(database);
+		const now = 5_000_000;
+		repository.upsertBeacon('aa:bb:cc:dd:ee:ff', 'Office', 'default', now - 10_000);
+		repository.recordSamples([
+			{ beaconMac: 'aa:bb:cc:dd:ee:ff', ...sample(now - 2000, true, -60) },
+			{ beaconMac: 'aa:bb:cc:dd:ee:ff', ...sample(now - 1500, true, -61) },
+			{ beaconMac: 'aa:bb:cc:dd:ee:ff', ...sample(now - 1000, true, -62) },
+			{ beaconMac: 'aa:bb:cc:dd:ee:ff', ...sample(now - 500, true, -63) }
+		]);
+
+		const history = repository.getMetrics(now - 5 * 60_000, now, 600);
+
+		expect(history.bucketSeconds).toBe(0.5);
+		expect(history.series[0].points.map((point) => point.signalDbm)).toEqual([-60, -61, -62, -63]);
+		database.raw.close();
+	});
+
 	it('prunes only samples older than the retention cutoff', () => {
 		const database = createDatabase(':memory:');
 		const repository = new Repository(database);

@@ -17,12 +17,16 @@
 		metric: ChartMetric;
 		label: string;
 		unit: string;
+		from?: number;
+		to?: number;
 	};
 
-	let { series, metric, label, unit }: Props = $props();
+	let { series, metric, label, unit, from, to }: Props = $props();
 	let canvas = $state<HTMLCanvasElement>();
 	let chart: ChartInstance | null = null;
 	let ChartConstructor: typeof import('chart.js').Chart | null = null;
+	let drawnMetric: ChartMetric | null = null;
+	let drawnFormat: 'date' | 'seconds' | 'time' | null = null;
 
 	const colors = ['#24d6a7', '#73a8ff', '#f6b950', '#f07b91', '#a78bfa', '#2dd4bf'];
 	const bands = $derived(zoneBands(metric));
@@ -63,57 +67,97 @@
 		};
 	}
 
-	function draw(): void {
-		if (!canvas || !ChartConstructor) return;
-		chart?.destroy();
+	function timeFormatter(spanMs: number): {
+		format: Intl.DateTimeFormat;
+		mode: 'date' | 'seconds' | 'time';
+	} {
+		const showDate = spanMs > 36e5 * 24;
+		const showSeconds = spanMs > 0 && spanMs < 10 * 60 * 1000;
+		return {
+			mode: showDate ? 'date' : showSeconds ? 'seconds' : 'time',
+			format: new Intl.DateTimeFormat(undefined, {
+				...(showDate ? { month: 'short', day: 'numeric' } : {}),
+				hour: 'numeric',
+				minute: '2-digit',
+				...(showSeconds ? { second: '2-digit' } : {})
+			})
+		};
+	}
 
-		const timestamps = [
-			...new Set(series.flatMap((beacon) => beacon.points.map((point) => point.sampledAt)))
-		].sort((a, b) => a - b);
-		const timestampIndex = new Map(timestamps.map((timestamp, index) => [timestamp, index]));
-		const showDate =
-			timestamps.length > 1 && timestamps[timestamps.length - 1] - timestamps[0] > 36e5 * 24;
-		const formatter = new Intl.DateTimeFormat(undefined, {
-			...(showDate ? { month: 'short', day: 'numeric' } : {}),
-			hour: 'numeric',
-			minute: '2-digit'
-		});
-
+	function chartModel() {
+		const timestamps = series.flatMap((beacon) => beacon.points.map((point) => point.sampledAt));
+		const minTime = timestamps.length ? Math.min(...timestamps) : (from ?? 0);
+		const maxTime = timestamps.length ? Math.max(...timestamps) : (to ?? 0);
+		const start = from ?? minTime;
+		const end = to ?? maxTime;
+		const { format, mode } = timeFormatter(Math.max(0, end - start));
 		const plotted = series.flatMap((beacon) =>
 			beacon.points
 				.map((point) => metricValue(point))
 				.filter((value): value is number => value !== null)
 		);
-		const axisRange = zoneAxisRange(metric, plotted);
+		const pointCount = series.reduce((count, beacon) => count + beacon.points.length, 0);
+		const datasets = series.map((beacon, index) => ({
+			label: beacon.name,
+			data: beacon.points.map((point) => ({ x: point.sampledAt, y: metricValue(point) })),
+			borderColor: colors[index % colors.length],
+			backgroundColor: colors[index % colors.length],
+			borderWidth: 2,
+			pointRadius: pointCount < 160 ? 2 : 0,
+			pointHoverRadius: 5,
+			tension: 0.28,
+			spanGaps: false
+		}));
+
+		return {
+			start,
+			end,
+			mode,
+			format,
+			axisRange: zoneAxisRange(metric, plotted),
+			datasets
+		};
+	}
+
+	function draw(): void {
+		if (!canvas || !ChartConstructor) return;
+
+		const model = chartModel();
+		const xScale = chart?.options.scales?.x;
+		const yScale = chart?.options.scales?.y;
+		const canUpdate =
+			chart &&
+			drawnMetric === metric &&
+			drawnFormat === model.mode &&
+			chart.data.datasets.length === model.datasets.length &&
+			xScale &&
+			yScale;
+
+		if (canUpdate && chart) {
+			chart.data.datasets = model.datasets;
+			xScale.min = model.start;
+			xScale.max = model.end;
+			yScale.min = model.axisRange.min;
+			yScale.max = model.axisRange.max;
+			chart.update('none');
+			return;
+		}
+
+		chart?.destroy();
+		drawnMetric = metric;
+		drawnFormat = model.mode;
 
 		chart = new ChartConstructor(canvas, {
 			type: 'line',
 			plugins: [qualityZonePlugin(bands)],
 			data: {
-				labels: timestamps.map((timestamp) => formatter.format(timestamp)),
-				datasets: series.map((beacon, index) => {
-					const values: (number | null)[] = Array(timestamps.length).fill(null);
-					for (const point of beacon.points) {
-						const pointIndex = timestampIndex.get(point.sampledAt);
-						if (pointIndex !== undefined) values[pointIndex] = metricValue(point);
-					}
-					return {
-						label: beacon.name,
-						data: values,
-						borderColor: colors[index % colors.length],
-						backgroundColor: colors[index % colors.length],
-						borderWidth: 2,
-						pointRadius: timestamps.length < 80 ? 2 : 0,
-						pointHoverRadius: 5,
-						tension: 0.28,
-						spanGaps: false
-					};
-				})
+				datasets: model.datasets
 			},
 			options: {
 				responsive: true,
 				maintainAspectRatio: false,
-				interaction: { mode: 'index', intersect: false },
+				animation: false,
+				interaction: { mode: 'nearest', intersect: false },
 				plugins: {
 					legend: {
 						position: 'top',
@@ -130,18 +174,31 @@
 						borderColor: '#2d3b49',
 						borderWidth: 1,
 						callbacks: {
+							title: (items) => {
+								const x = items[0]?.parsed?.x;
+								return typeof x === 'number' ? model.format.format(x) : '';
+							},
 							label: (context) => `${context.dataset.label}: ${context.formattedValue} ${unit}`
 						}
 					}
 				},
 				scales: {
 					x: {
+						type: 'linear',
+						min: model.start,
+						max: model.end,
+						bounds: 'ticks',
 						grid: { color: 'rgba(151, 168, 185, 0.08)' },
-						ticks: { color: '#718196', maxTicksLimit: 8, maxRotation: 0 }
+						ticks: {
+							color: '#718196',
+							maxTicksLimit: 8,
+							maxRotation: 0,
+							callback: (value) => model.format.format(Number(value))
+						}
 					},
 					y: {
-						min: axisRange.min,
-						max: axisRange.max,
+						min: model.axisRange.min,
+						max: model.axisRange.max,
 						grid: { color: 'rgba(151, 168, 185, 0.1)' },
 						ticks: {
 							color: '#718196',
