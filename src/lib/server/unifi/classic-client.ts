@@ -13,6 +13,10 @@ export class ClassicClient {
 		this.http = new UniFiHttpClient(config.unifiUrl, config.verifyTls);
 	}
 
+	async verifyCredentials(): Promise<void> {
+		await this.login();
+	}
+
 	private captureSession(response: Response): void {
 		const headers = response.headers as Headers & { getSetCookie?: () => string[] };
 		const setCookies = headers.getSetCookie?.() ?? [];

@@ -44,20 +44,44 @@ because the official connected-client schema does not currently expose those val
    Control Plane → Console** (or **System** / console info) as **Local Access** / **LAN IP**. If the
    UniFi box is your router, that is usually the default gateway. An IP is more reliable than
    `https://unifi` or `https://unifi.local`.
-4. Copy `.env.example` to `.env` and enter the URL, API key, and local account credentials.
-5. Leave `UNIFI_SITE=default` for the usual single-site setup. A site display name also works.
-6. Prefer a trusted console certificate. If the console only has its factory self-signed certificate,
-   explicitly set `UNIFI_VERIFY_TLS=false`.
+4. Start the app (Mac desktop, Docker, or `pnpm dev`) and use the **login page** to enter the
+   console URL, Integration API key, and local account. Credentials are stored in
+   `DATA_DIR/connection.json`, not SQLite and not a required `.env` file.
+5. Leave the site as `default` unless you use a named site. A site display name also works.
+6. Prefer a trusted console certificate. Leave **Verify TLS** off for the factory self-signed
+   certificate shipped by many local consoles.
+
+## Run on a Mac
+
+Node.js 22 and pnpm are recommended.
+
+```sh
+pnpm install
+pnpm electron:dev
+```
+
+That opens a native window against the Vite dev server. On first launch, complete the login page.
+
+To build a local unsigned `.app` / `.dmg` for Apple Silicon:
+
+```sh
+pnpm electron:build
+```
+
+The artifacts are under `release/`. Gatekeeper will require **right-click → Open** the first time.
+The packaged app stores history and `connection.json` in
+`~/Library/Application Support/UniFi Beacon Monitor/data`. Use **Help → Open data folder** if you
+need that path. Environment variables remain an optional override for automation.
 
 ## Run with Docker Compose
 
 ```sh
-cp .env.example .env
-# Edit .env, then:
 docker compose up --build -d
 ```
 
-Open <http://localhost:3000>. The named `networker_data` volume retains history across upgrades.
+Open <http://localhost:3000> and complete the login page if the container has no UniFi environment
+variables. The named `networker_data` volume retains history and the saved connection across
+upgrades. You can still pass `UNIFI_*` variables in `.env` instead of using the login page.
 
 If `UNIFI_URL` uses `127.0.0.1` or `localhost` (a host tunnel or forwarded console port), the
 container rewrites that host to `host.docker.internal`. A LAN console IP such as
@@ -75,11 +99,11 @@ Node.js 22 and pnpm are recommended.
 
 ```sh
 pnpm install
-cp .env.example .env
-UNIFI_FIXTURE_MODE=true pnpm dev
+pnpm dev
 ```
 
-The local SQLite database is created under `data/`. Useful checks:
+Open the login page, or set `UNIFI_FIXTURE_MODE=true` to use simulated clients. The local SQLite
+database and `connection.json` are created under `data/`. Useful checks:
 
 ```sh
 pnpm check
@@ -90,17 +114,22 @@ pnpm build
 
 ## Configuration
 
+The login page is the normal way to set the console URL, API key, and local account. It writes
+`DATA_DIR/connection.json` with owner-only permissions. Environment variables still win when set,
+which is useful for Docker and CI:
+
 - `UNIFI_URL`: direct local console URL
 - `UNIFI_API_KEY`: local Network Integration API key
 - `UNIFI_USERNAME`, `UNIFI_PASSWORD`: dedicated local view-only account
 - `UNIFI_SITE`: classic site slug or Integration API display name; defaults to `default`
-- `UNIFI_VERIFY_TLS`: defaults to `true`
+- `UNIFI_VERIFY_TLS`: defaults to `true` when unset
 - `POLL_INTERVAL_SECONDS`: 0.5–3600 seconds; defaults to `30`
 - `RETENTION_DAYS`: 1–3650 days; defaults to `30`
-- `DATA_DIR` or `DATABASE_PATH`: SQLite location
+- `DATA_DIR` or `DATABASE_PATH`: SQLite and `connection.json` location
 - `UNIFI_FIXTURE_MODE`: use deterministic simulated clients
 
-Secrets are read from the environment and are never saved to SQLite or returned to the browser.
+Secrets are never saved to SQLite or returned to the browser. The API key and password are omitted
+from `GET /api/connection`.
 
 ## Operational notes
 

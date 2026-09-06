@@ -8,11 +8,11 @@ The sections below are a copy of that plan. Prefer the plan file if the two ever
 
 ## Checklist
 
-- [ ] Add `/login` form and `POST /api/connection` that validates UniFi API key plus local username/password, persists them under `DATA_DIR`, and restarts the collector
-- [ ] Load connection file from `DATA_DIR`, merge with optional env overrides, and add `applyConfig` so login can swap the provider without quitting
-- [ ] Add Electron main/preload that sets `DATA_DIR`, starts the SvelteKit server, and opens a secure `BrowserWindow`
-- [ ] Add Electron deps, pnpm scripts, electron-builder Mac arm64 config, and `better-sqlite3` rebuild/unpack
-- [ ] Update README and dashboard copy for login-based setup; keep `.env` as an optional override
+- [x] Add `/login` form and `POST /api/connection` that validates UniFi API key plus local username/password, persists them under `DATA_DIR`, and restarts the collector
+- [x] Load connection file from `DATA_DIR`, merge with optional env overrides, and add `applyConfig` so login can swap the provider without quitting
+- [x] Add Electron main/preload that sets `DATA_DIR`, starts the SvelteKit server, and opens a secure `BrowserWindow`
+- [x] Add Electron deps, pnpm scripts, electron-builder Mac arm64 config, and `better-sqlite3` rebuild/unpack
+- [x] Update README and dashboard copy for login-based setup; keep `.env` as an optional override
 
 ---
 

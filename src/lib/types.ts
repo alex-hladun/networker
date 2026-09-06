@@ -67,3 +67,14 @@ export type MetricsResponse = {
 	bucketSeconds: number;
 	series: BeaconSeries[];
 };
+
+export type PublicConnection = {
+	unifiUrl: string;
+	username: string;
+	site: string;
+	verifyTls: boolean;
+	configured: boolean;
+	hasApiKey: boolean;
+	hasUsername: boolean;
+	hasPassword: boolean;
+};

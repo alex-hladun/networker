@@ -46,7 +46,7 @@ export class Collector {
 			nextPollAt: null,
 			lastError: configured
 				? null
-				: 'Set the UniFi connection variables or enable fixture mode to start collecting.',
+				: 'Open the login page to add your UniFi console URL and credentials.',
 			warning: null,
 			controllerVersion: null,
 			discoveredClientCount: 0,

@@ -1,0 +1,21 @@
+appId: com.networker.unifi-beacon-monitor
+productName: UniFi Beacon Monitor
+directories:
+  output: release
+files:
+  - electron/**/*
+  - build/**/*
+  - package.json
+asarUnpack:
+  - '**/*.node'
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.utilities
+  identity: null
+  hardenedRuntime: false
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  extendInfo:
+    NSLocalNetworkUsageDescription: Used to read Wi-Fi client telemetry from your UniFi console on the local network.
+npmRebuild: true

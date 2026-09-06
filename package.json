@@ -1,8 +1,10 @@
 {
 	"name": "unifi-beacon-monitor",
+	"description": "Local UniFi Wi-Fi beacon monitor",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
+	"main": "electron/main.mjs",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
@@ -15,7 +17,9 @@
 		"format": "prettier --write .",
 		"test:unit": "vitest run",
 		"test": "pnpm test:unit",
-		"db:generate": "drizzle-kit generate"
+		"db:generate": "drizzle-kit generate",
+		"electron:dev": "concurrently -k \"vite dev --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+		"electron:build": "vite build && electron-builder --mac --arm64"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
@@ -37,7 +41,12 @@
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.60.1",
 		"vite": "^8.0.16",
-		"vitest": "^4.1.8"
+		"@electron/rebuild": "^4.0.3",
+		"concurrently": "^9.2.1",
+		"electron": "^41.0.3",
+		"electron-builder": "^26.8.1",
+		"vitest": "^4.1.8",
+		"wait-on": "^9.0.4"
 	},
 	"dependencies": {
 		"better-sqlite3": "^13.0.3",
@@ -48,7 +57,9 @@
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
-			"better-sqlite3"
+			"better-sqlite3",
+			"electron",
+			"esbuild"
 		]
 	},
 	"packageManager": "pnpm@10.33.0"

@@ -332,6 +332,9 @@
 							: 'Not configured'}
 				</small>
 			</div>
+			{#if !demoMode}
+				<a class="change-connection" href={resolve('/login')}>Change connection</a>
+			{/if}
 		</div>
 	</header>
 
@@ -371,8 +374,8 @@
 				<div>
 					<strong>Connect your UniFi console</strong>
 					<span
-						>Copy <code>.env.example</code> to <code>.env</code>, add the two read-only credentials,
-						and restart the app.</span
+						>Open the <a href={resolve('/login')}>login page</a> and enter the console URL, API key, and
+						local UniFi account.</span
 					>
 				</div>
 			</div>
@@ -840,6 +843,21 @@
 		gap: 0.7rem;
 	}
 
+	.change-connection {
+		color: var(--muted);
+		font-size: 0.75rem;
+		text-decoration: none;
+		margin-left: 0.4rem;
+	}
+
+	.change-connection:hover {
+		color: var(--text);
+	}
+
+	.notice a {
+		color: #ebc989;
+	}
+
 	.collector-state strong {
 		font-size: 0.8rem;
 	}
@@ -983,13 +1001,6 @@
 		font-size: 0.78rem;
 		line-height: 1.45;
 		color: #a9b3b8;
-	}
-
-	code {
-		background: rgba(255, 255, 255, 0.07);
-		border-radius: 4px;
-		padding: 0.08rem 0.3rem;
-		color: #d6e1e5;
 	}
 
 	.toast {
