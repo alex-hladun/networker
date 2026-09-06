@@ -16,6 +16,7 @@ test('selects a fixture beacon and changes the history view', async ({ page }) =
 	await page.getByRole('button', { name: '1H' }).click();
 	await page.getByRole('button', { name: 'SNR', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'SNR over time' })).toBeVisible();
+	await expect(page.getByLabel('Quality zones')).toBeVisible();
 });
 
 test('rejects an invalid beacon payload', async ({ request }) => {

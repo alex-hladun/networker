@@ -1,4 +1,4 @@
-export type SignalQuality = 'excellent' | 'good' | 'fair' | 'poor' | 'unknown';
+export type SignalQuality = 'excellent' | 'ideal' | 'ok' | 'bad' | 'terrible' | 'unknown';
 
 export type DiscoveredClient = {
 	mac: string;

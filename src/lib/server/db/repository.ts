@@ -6,6 +6,7 @@ import type {
 	MetricsResponse,
 	SignalQuality
 } from '$lib/types';
+import { qualityLabel as formatQuality } from '$lib/metric-zones';
 import { signalQuality } from '../unifi/normalize';
 import type { AppDatabase } from './index';
 import { beacons, collectorStatus, metricSamples } from './schema';
@@ -265,5 +266,5 @@ function mapSample(row: Record<string, unknown>): MetricSample {
 }
 
 export function qualityLabel(quality: SignalQuality): string {
-	return quality === 'unknown' ? 'No signal' : quality[0].toUpperCase() + quality.slice(1);
+	return formatQuality(quality);
 }

@@ -1,3 +1,4 @@
+import { classifyMetric } from '$lib/metric-zones';
 import type { SignalQuality } from '$lib/types';
 import type { NormalizedStation, RawStation } from './types';
 
@@ -24,10 +25,7 @@ export function normalizeMac(value: unknown): string | null {
 
 export function signalQuality(signalDbm: number | null): SignalQuality {
 	if (signalDbm === null) return 'unknown';
-	if (signalDbm >= -60) return 'excellent';
-	if (signalDbm >= -67) return 'good';
-	if (signalDbm >= -75) return 'fair';
-	return 'poor';
+	return classifyMetric('signalDbm', signalDbm);
 }
 
 export function deriveRetryPercent(

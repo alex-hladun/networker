@@ -1,20 +1,20 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { Chart as ChartInstance } from 'chart.js';
+	import type { Chart as ChartInstance, Plugin } from 'chart.js';
+	import {
+		QUALITY_ZONES,
+		ZONE_COLORS,
+		ZONE_LABELS,
+		zoneAxisRange,
+		zoneBands,
+		type ChartMetric,
+		type ZoneBand
+	} from '$lib/metric-zones';
 	import type { BeaconSeries, MetricSample } from '$lib/types';
-
-	type MetricKey =
-		| 'signalDbm'
-		| 'noiseDbm'
-		| 'snrDb'
-		| 'satisfaction'
-		| 'txRateKbps'
-		| 'rxRateKbps'
-		| 'retryPercent';
 
 	type Props = {
 		series: BeaconSeries[];
-		metric: MetricKey;
+		metric: ChartMetric;
 		label: string;
 		unit: string;
 	};
@@ -25,12 +25,42 @@
 	let ChartConstructor: typeof import('chart.js').Chart | null = null;
 
 	const colors = ['#24d6a7', '#73a8ff', '#f6b950', '#f07b91', '#a78bfa', '#2dd4bf'];
+	const bands = $derived(zoneBands(metric));
 
 	function metricValue(sample: MetricSample): number | null {
 		const value = sample[metric];
 		if (value === null) return null;
 		if (metric === 'txRateKbps' || metric === 'rxRateKbps') return value / 1000;
 		return Number(value.toFixed(1));
+	}
+
+	function qualityZonePlugin(zoneBandsForDraw: ZoneBand[]): Plugin {
+		return {
+			id: 'qualityZones',
+			beforeDraw(instance) {
+				const { ctx, chartArea, scales } = instance;
+				const y = scales.y;
+				if (!chartArea || !y) return;
+
+				ctx.save();
+				ctx.beginPath();
+				ctx.rect(chartArea.left, chartArea.top, chartArea.width, chartArea.height);
+				ctx.clip();
+
+				for (const band of zoneBandsForDraw) {
+					const from = Math.max(band.from, y.min);
+					const to = Math.min(band.to, y.max);
+					if (!(to > from)) continue;
+
+					const top = y.getPixelForValue(to);
+					const bottom = y.getPixelForValue(from);
+					ctx.fillStyle = band.color;
+					ctx.fillRect(chartArea.left, top, chartArea.width, bottom - top);
+				}
+
+				ctx.restore();
+			}
+		};
 	}
 
 	function draw(): void {
@@ -49,8 +79,16 @@
 			minute: '2-digit'
 		});
 
+		const plotted = series.flatMap((beacon) =>
+			beacon.points
+				.map((point) => metricValue(point))
+				.filter((value): value is number => value !== null)
+		);
+		const axisRange = zoneAxisRange(metric, plotted);
+
 		chart = new ChartConstructor(canvas, {
 			type: 'line',
+			plugins: [qualityZonePlugin(bands)],
 			data: {
 				labels: timestamps.map((timestamp) => formatter.format(timestamp)),
 				datasets: series.map((beacon, index) => {
@@ -102,6 +140,8 @@
 						ticks: { color: '#718196', maxTicksLimit: 8, maxRotation: 0 }
 					},
 					y: {
+						min: axisRange.min,
+						max: axisRange.max,
 						grid: { color: 'rgba(151, 168, 185, 0.1)' },
 						ticks: {
 							color: '#718196',
@@ -140,7 +180,19 @@
 			<span>Leave the collector running or choose a wider time range.</span>
 		</div>
 	{:else}
-		<canvas bind:this={canvas} aria-label={`${label} history chart`}></canvas>
+		<div class="chart-canvas">
+			<canvas bind:this={canvas} aria-label={`${label} history chart`}></canvas>
+		</div>
+		{#if bands.length > 0}
+			<div class="zone-legend" aria-label="Quality zones">
+				{#each QUALITY_ZONES as zone (zone)}
+					<span>
+						<i style:background={ZONE_COLORS[zone]}></i>
+						{ZONE_LABELS[zone]}
+					</span>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 </div>
 
@@ -149,6 +201,42 @@
 		position: relative;
 		height: 360px;
 		min-height: 300px;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.chart-canvas {
+		position: relative;
+		flex: 1;
+		min-height: 0;
+	}
+
+	.chart-canvas canvas {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.zone-legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.55rem 0.85rem;
+		padding: 0.45rem 0.2rem 0;
+		color: #7d8e9d;
+		font-size: 0.6rem;
+	}
+
+	.zone-legend span {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+	}
+
+	.zone-legend i {
+		width: 0.7rem;
+		height: 0.7rem;
+		border-radius: 3px;
+		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 	}
 
 	.empty {

@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import MetricChart from '$lib/components/MetricChart.svelte';
+	import { qualityLabel } from '$lib/metric-zones';
 	import type { Beacon, CollectorStatus, DiscoveredClient, MetricsResponse } from '$lib/types';
 
 	type ClientOption = DiscoveredClient & { selected: boolean };
@@ -311,7 +312,7 @@
 											<span>{beacon.mac}</span>
 										</div>
 										<span class={`quality ${beacon.latest?.online ? beacon.quality : 'offline'}`}>
-											{beacon.latest?.online ? beacon.quality : 'offline'}
+											{beacon.latest?.online ? qualityLabel(beacon.quality) : 'offline'}
 										</span>
 									</div>
 
@@ -319,10 +320,10 @@
 										<strong>{displayValue(beacon.latest?.signalDbm, 0)}</strong>
 										<span>dBm</span>
 										<div class="signal-bars" aria-hidden="true">
-											<i class:lit={(beacon.latest?.signalDbm ?? -100) >= -80}></i>
-											<i class:lit={(beacon.latest?.signalDbm ?? -100) >= -72}></i>
 											<i class:lit={(beacon.latest?.signalDbm ?? -100) >= -65}></i>
-											<i class:lit={(beacon.latest?.signalDbm ?? -100) >= -58}></i>
+											<i class:lit={(beacon.latest?.signalDbm ?? -100) >= -60}></i>
+											<i class:lit={(beacon.latest?.signalDbm ?? -100) >= -55}></i>
+											<i class:lit={(beacon.latest?.signalDbm ?? -100) > -50}></i>
 										</div>
 									</div>
 
@@ -909,16 +910,23 @@
 		color: var(--muted);
 	}
 
-	.quality.excellent,
-	.quality.good {
+	.quality.excellent {
+		color: #2dd4bf;
+	}
+
+	.quality.ideal {
 		color: var(--accent);
 	}
 
-	.quality.fair {
+	.quality.ok {
 		color: var(--warning);
 	}
 
-	.quality.poor {
+	.quality.bad {
+		color: #f08c5a;
+	}
+
+	.quality.terrible {
 		color: var(--danger);
 	}
 
