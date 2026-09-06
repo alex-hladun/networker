@@ -10,7 +10,14 @@
 		type ChartMetric,
 		type ZoneBand
 	} from '$lib/metric-zones';
+	import { tooltipMetricLines } from '$lib/chart-tooltip';
 	import type { BeaconSeries, MetricSample } from '$lib/types';
+
+	type ChartPoint = { x: number; y: number | null; sample: MetricSample };
+
+	function isChartPoint(value: unknown): value is ChartPoint {
+		return typeof value === 'object' && value !== null && 'sample' in value;
+	}
 
 	type Props = {
 		series: BeaconSeries[];
@@ -19,9 +26,18 @@
 		unit: string;
 		from?: number;
 		to?: number;
+		emptyDetail?: string;
 	};
 
-	let { series, metric, label, unit, from, to }: Props = $props();
+	let {
+		series,
+		metric,
+		label,
+		unit,
+		from,
+		to,
+		emptyDetail = 'Leave the collector running or choose a wider time range.'
+	}: Props = $props();
 	let canvas = $state<HTMLCanvasElement>();
 	let chart: ChartInstance | null = null;
 	let ChartConstructor: typeof import('chart.js').Chart | null = null;
@@ -99,7 +115,11 @@
 		const pointCount = series.reduce((count, beacon) => count + beacon.points.length, 0);
 		const datasets = series.map((beacon, index) => ({
 			label: beacon.name,
-			data: beacon.points.map((point) => ({ x: point.sampledAt, y: metricValue(point) })),
+			data: beacon.points.map((point) => ({
+				x: point.sampledAt,
+				y: metricValue(point),
+				sample: point
+			})),
 			borderColor: colors[index % colors.length],
 			backgroundColor: colors[index % colors.length],
 			borderWidth: 2,
@@ -157,7 +177,7 @@
 				responsive: true,
 				maintainAspectRatio: false,
 				animation: false,
-				interaction: { mode: 'nearest', intersect: false },
+				interaction: { mode: 'nearest', axis: 'x', intersect: false },
 				plugins: {
 					legend: {
 						position: 'top',
@@ -173,12 +193,34 @@
 						backgroundColor: '#111a23',
 						borderColor: '#2d3b49',
 						borderWidth: 1,
+						padding: 10,
+						bodySpacing: 3,
+						boxPadding: 4,
+						mode: 'nearest',
+						axis: 'x',
+						intersect: false,
+						itemSort: (left, right) =>
+							(left.dataset.label ?? '').localeCompare(right.dataset.label ?? ''),
+						filter: (item, _index, items) => {
+							if (item.parsed?.y === null || item.parsed?.y === undefined) return false;
+							const times = items
+								.map((entry) => entry.parsed?.x)
+								.filter((value): value is number => typeof value === 'number')
+								.sort((left, right) => left - right);
+							const anchor = times[Math.floor(times.length / 2)];
+							const x = item.parsed?.x;
+							return typeof x === 'number' && Math.abs(x - anchor) < 2000;
+						},
 						callbacks: {
 							title: (items) => {
 								const x = items[0]?.parsed?.x;
 								return typeof x === 'number' ? model.format.format(x) : '';
 							},
-							label: (context) => `${context.dataset.label}: ${context.formattedValue} ${unit}`
+							label: (context) => context.dataset.label ?? '',
+							afterLabel: (context) => {
+								if (!isChartPoint(context.raw)) return [];
+								return tooltipMetricLines(context.raw.sample);
+							}
 						}
 					}
 				},
@@ -234,7 +276,7 @@
 		<div class="empty">
 			<div class="empty-icon">⌁</div>
 			<strong>No samples in this range</strong>
-			<span>Leave the collector running or choose a wider time range.</span>
+			<span>{emptyDetail}</span>
 		</div>
 	{:else}
 		<div class="chart-canvas">
