@@ -144,6 +144,20 @@ Scenarios stay in SQLite on a self-hosted or Electron install (`GET` / `POST` / 
 `/api/scenarios`). The static demo keeps them in browser storage so they survive a refresh. Use
 saved scenarios to compare windows such as before and after moving an access point.
 
+## GitHub Pages demo
+
+The **Deploy demo** workflow publishes `pnpm build:demo` to GitHub Pages at
+<https://alex-hladun.github.io/networker/>. `BASE_PATH=/networker` matches that project-site
+path. This repository does not set a custom domain, and the workflow drops any `CNAME` from
+the uploaded artifact.
+
+GitHub still redirects every project site to a user-site custom domain when
+[`alex-hladun.github.io`](https://github.com/alex-hladun/alex-hladun.github.io) contains a
+`CNAME`. That is why the demo can appear at a host such as `alexhladun.me` even though this
+repo is configured for `github.io`. To use the default host, delete that `CNAME` and clear
+**Settings → Pages → Custom domain** on the user site. After GitHub updates the Pages
+mapping, `https://alex-hladun.github.io/networker/` no longer redirects.
+
 ## Operational notes
 
 - Run one application instance per database. The collector is intentionally in-process for a simple

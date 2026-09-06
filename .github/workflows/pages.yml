@@ -1,3 +1,5 @@
+# Static demo at https://<owner>.github.io/networker/ (no custom domain in this repo).
+# GitHub still redirects that URL if the user site <owner>.github.io has a CNAME.
 name: Deploy demo
 
 on:
@@ -29,7 +31,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:demo
-      - run: touch build/.nojekyll
+      - run: rm -f build/CNAME && touch build/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
