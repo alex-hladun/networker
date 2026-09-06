@@ -38,4 +38,12 @@ describe('chart tooltip', () => {
 	it('marks offline samples instead of repeating empty metrics', () => {
 		expect(tooltipMetricLines({ ...sample, online: false })).toEqual(['Offline']);
 	});
+
+	it('keeps only the selected tooltip fields, in display order', () => {
+		expect(tooltipMetricLines(sample, ['channel', 'signalDbm', 'ap'])).toEqual([
+			'Signal  -54 dBm',
+			'AP  Office AP',
+			'Channel  36 · AX'
+		]);
+	});
 });

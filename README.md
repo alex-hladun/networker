@@ -7,7 +7,9 @@ the client telemetry reported by UniFi Network and compares signal quality over 
 dashboard.
 
 The collector is read-only: it does not change access points, channels, radios, or WLAN settings. A
-Reconnect control on each beacon card can ask UniFi to reconnect that wireless client.
+Reconnect control on each beacon card can ask UniFi to reconnect that wireless client. Hovering the
+history chart lists every selected device at that time; use the Tooltip chips to choose which
+fields appear (signal, SNR, noise, satisfaction, rates, retries, AP, and channel).
 
 ## What it records
 

@@ -10,7 +10,7 @@
 		type ChartMetric,
 		type ZoneBand
 	} from '$lib/metric-zones';
-	import { tooltipMetricLines } from '$lib/chart-tooltip';
+	import { ALL_TOOLTIP_METRICS, tooltipMetricLines, type TooltipMetric } from '$lib/chart-tooltip';
 	import type { BeaconSeries, MetricSample } from '$lib/types';
 
 	type ChartPoint = { x: number; y: number | null; sample: MetricSample };
@@ -27,6 +27,7 @@
 		from?: number;
 		to?: number;
 		emptyDetail?: string;
+		tooltipMetrics?: readonly TooltipMetric[];
 	};
 
 	let {
@@ -36,13 +37,15 @@
 		unit,
 		from,
 		to,
-		emptyDetail = 'Leave the collector running or choose a wider time range.'
+		emptyDetail = 'Leave the collector running or choose a wider time range.',
+		tooltipMetrics = ALL_TOOLTIP_METRICS
 	}: Props = $props();
 	let canvas = $state<HTMLCanvasElement>();
 	let chart: ChartInstance | null = null;
 	let ChartConstructor: typeof import('chart.js').Chart | null = null;
 	let drawnMetric: ChartMetric | null = null;
 	let drawnFormat: 'date' | 'seconds' | 'time' | null = null;
+	let activeTooltipMetrics: readonly TooltipMetric[] = ALL_TOOLTIP_METRICS;
 
 	const colors = ['#24d6a7', '#73a8ff', '#f6b950', '#f07b91', '#a78bfa', '#2dd4bf'];
 	const bands = $derived(zoneBands(metric));
@@ -141,6 +144,7 @@
 
 	function draw(): void {
 		if (!canvas || !ChartConstructor) return;
+		activeTooltipMetrics = tooltipMetrics;
 
 		const model = chartModel();
 		const xScale = chart?.options.scales?.x;
@@ -219,7 +223,7 @@
 							label: (context) => context.dataset.label ?? '',
 							afterLabel: (context) => {
 								if (!isChartPoint(context.raw)) return [];
-								return tooltipMetricLines(context.raw.sample);
+								return tooltipMetricLines(context.raw.sample, activeTooltipMetrics);
 							}
 						}
 					}

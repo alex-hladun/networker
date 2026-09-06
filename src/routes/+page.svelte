@@ -4,6 +4,11 @@
 	import { onMount } from 'svelte';
 	import MetricChart from '$lib/components/MetricChart.svelte';
 	import { filterChartSeries, listAccessPoints } from '$lib/chart-filters';
+	import {
+		ALL_TOOLTIP_METRICS,
+		TOOLTIP_METRICS,
+		type TooltipMetric
+	} from '$lib/chart-tooltip';
 	import { DemoRuntime } from '$lib/demo/runtime';
 	import {
 		QUALITY_ZONES,
@@ -55,6 +60,7 @@
 	let range = $state(5 * 60 * 1000);
 	let selectedAp = $state<string | null>(null);
 	let selectedBands = $state<QualityZone[]>([...QUALITY_ZONES]);
+	let selectedTooltipMetrics = $state<TooltipMetric[]>([...ALL_TOOLTIP_METRICS]);
 	let loading = $state(true);
 	let busyMac = $state<string | null>(null);
 	let errorMessage = $state<string | null>(null);
@@ -74,6 +80,9 @@
 	const pollIntervalMs = $derived(Math.max(500, (status?.pollIntervalSeconds ?? 30) * 1000));
 	const availableAps = $derived(listAccessPoints(history?.series ?? []));
 	const allBandsSelected = $derived(selectedBands.length === QUALITY_ZONES.length);
+	const allTooltipMetricsSelected = $derived(
+		selectedTooltipMetrics.length === ALL_TOOLTIP_METRICS.length
+	);
 	const chartSeries = $derived(
 		filterChartSeries(history?.series ?? [], { apId: selectedAp, bands: selectedBands })
 	);
@@ -218,6 +227,23 @@
 
 	function selectAllBands(): void {
 		selectedBands = [...QUALITY_ZONES];
+	}
+
+	function selectAllTooltipMetrics(): void {
+		selectedTooltipMetrics = [...ALL_TOOLTIP_METRICS];
+	}
+
+	function toggleTooltipMetric(key: TooltipMetric): void {
+		if (allTooltipMetricsSelected) {
+			selectedTooltipMetrics = [key];
+			return;
+		}
+		if (selectedTooltipMetrics.includes(key)) {
+			const next = selectedTooltipMetrics.filter((item) => item !== key);
+			selectedTooltipMetrics = next.length === 0 ? [...ALL_TOOLTIP_METRICS] : next;
+			return;
+		}
+		selectedTooltipMetrics = [...selectedTooltipMetrics, key];
 	}
 
 	function toggleBand(zone: QualityZone): void {
@@ -540,6 +566,23 @@
 								>
 							{/each}
 						</div>
+						<div class="filter-group" aria-label="Tooltip metrics">
+							<span>Tooltip</span>
+							<button
+								class:active={allTooltipMetricsSelected}
+								aria-pressed={allTooltipMetricsSelected}
+								onclick={selectAllTooltipMetrics}>All</button
+							>
+							{#each TOOLTIP_METRICS as option (option.key)}
+								<button
+									class:active={!allTooltipMetricsSelected &&
+										selectedTooltipMetrics.includes(option.key)}
+									aria-pressed={!allTooltipMetricsSelected &&
+										selectedTooltipMetrics.includes(option.key)}
+									onclick={() => toggleTooltipMetric(option.key)}>{option.label}</button
+								>
+							{/each}
+						</div>
 					</div>
 
 					<div class="chart-card">
@@ -551,6 +594,7 @@
 							from={history?.from}
 							to={history?.to}
 							emptyDetail={chartEmptyDetail}
+							tooltipMetrics={selectedTooltipMetrics}
 						/>
 						<div class="chart-foot">
 							<span>Bucket: {history?.bucketSeconds ?? status?.pollIntervalSeconds ?? 30}s</span>
