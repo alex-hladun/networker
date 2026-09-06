@@ -22,6 +22,7 @@ export type MetricSample = {
 	radio: string | null;
 	radioProtocol: string | null;
 	apMac: string | null;
+	apName: string | null;
 	txRetries: number | null;
 	txAttempts: number | null;
 };

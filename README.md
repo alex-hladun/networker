@@ -90,7 +90,7 @@ pnpm build
 - `UNIFI_USERNAME`, `UNIFI_PASSWORD`: dedicated local view-only account
 - `UNIFI_SITE`: classic site slug or Integration API display name; defaults to `default`
 - `UNIFI_VERIFY_TLS`: defaults to `true`
-- `POLL_INTERVAL_SECONDS`: 10–3600 seconds; defaults to `30`
+- `POLL_INTERVAL_SECONDS`: 0.5–3600 seconds; defaults to `30`
 - `RETENTION_DAYS`: 1–3650 days; defaults to `30`
 - `DATA_DIR` or `DATABASE_PATH`: SQLite location
 - `UNIFI_FIXTURE_MODE`: use deterministic simulated clients

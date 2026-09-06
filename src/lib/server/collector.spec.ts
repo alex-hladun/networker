@@ -46,6 +46,7 @@ function snapshot(txRetries = 10, txAttempts = 1000): ProviderSnapshot {
 				radio: 'wifi1',
 				radioProtocol: 'ax',
 				apMac: '00:11:22:33:44:55',
+				apName: 'Office AP',
 				txRetries,
 				txAttempts
 			}
@@ -78,6 +79,7 @@ describe('Collector', () => {
 		await collector.runOnce();
 
 		expect(repository.listBeacons()[0].latest?.retryPercent).toBe(5);
+		expect(repository.listBeacons()[0].latest?.apName).toBe('Office AP');
 		expect(collector.getStatus().lastPollSucceededAt).not.toBeNull();
 		database.raw.close();
 	});

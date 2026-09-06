@@ -19,6 +19,7 @@ const emptySample = (sampledAt: number): MetricSample => ({
 	radio: null,
 	radioProtocol: null,
 	apMac: null,
+	apName: null,
 	txRetries: null,
 	txAttempts: null
 });
@@ -134,6 +135,7 @@ export class Collector {
 					radio: station.radio,
 					radioProtocol: station.radioProtocol,
 					apMac: station.apMac,
+					apName: station.apName,
 					txRetries: station.txRetries,
 					txAttempts: station.txAttempts
 				};

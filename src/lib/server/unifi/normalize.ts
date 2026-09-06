@@ -78,7 +78,27 @@ export function normalizeStation(raw: RawStation): NormalizedStation | null {
 		radio: asString(raw.radio_name) ?? asString(raw.radio),
 		radioProtocol: asString(raw.radio_proto),
 		apMac: normalizeMac(raw.ap_mac),
+		apName: asString(raw.ap_name) ?? asString(raw.ap_display_name),
 		txRetries: asNumber(raw.tx_retries),
 		txAttempts: asNumber(raw.wifi_tx_attempts)
 	};
+}
+
+export function deviceNamesByMac(devices: RawStation[]): Map<string, string> {
+	const names = new Map<string, string>();
+	for (const device of devices) {
+		const mac = normalizeMac(device.mac);
+		const name = asString(device.name) ?? asString(device.hostname);
+		if (mac && name) names.set(mac, name);
+	}
+	return names;
+}
+
+export function resolveApName(
+	station: { apMac: string | null; apName: string | null },
+	deviceNames: Map<string, string>
+): string | null {
+	if (station.apName) return station.apName;
+	if (!station.apMac) return null;
+	return deviceNames.get(station.apMac) ?? null;
 }

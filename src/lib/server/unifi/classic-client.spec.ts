@@ -77,6 +77,12 @@ describe('ClassicClient session handling', () => {
 				response.end(JSON.stringify({ data: [{ mac: 'aa:bb:cc:dd:ee:ff', signal: -61 }] }));
 				return;
 			}
+			if (request.headers['x-api-key'] === 'key' && request.url?.includes('/stat/device')) {
+				response.end(
+					JSON.stringify({ data: [{ mac: '00:11:22:33:44:55', name: 'Office AP', type: 'uap' }] })
+				);
+				return;
+			}
 			response.statusCode = 404;
 			response.end('{}');
 		});
@@ -96,8 +102,10 @@ describe('ClassicClient session handling', () => {
 			databasePath: ':memory:'
 		};
 
-		const stations = await new ClassicClient(config).getStations();
+		const client = new ClassicClient(config);
+		const [stations, devices] = await Promise.all([client.getStations(), client.getDevices()]);
 		expect(stations).toHaveLength(1);
+		expect(devices).toEqual([{ mac: '00:11:22:33:44:55', name: 'Office AP', type: 'uap' }]);
 		expect(loginCount).toBe(0);
 		await new Promise<void>((resolve, reject) =>
 			server.close((error) => (error ? reject(error) : resolve()))

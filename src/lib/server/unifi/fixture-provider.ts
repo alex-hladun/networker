@@ -35,6 +35,7 @@ export class FixtureProvider implements NetworkProvider {
 					radio: client.channel > 14 ? 'wifi1' : 'wifi0',
 					radioProtocol: client.channel > 14 ? 'ax' : 'n',
 					apMac: index % 2 ? '02:aa:00:00:00:02' : '02:aa:00:00:00:01',
+					apName: index % 2 ? 'Living room AP' : 'Office AP',
 					txRetries: Math.floor(nowSeconds * (index + 2)),
 					txAttempts: attempts
 				}

@@ -34,6 +34,7 @@ const MIGRATION_SQL = `
 		radio TEXT,
 		radio_protocol TEXT,
 		ap_mac TEXT,
+		ap_name TEXT,
 		tx_retries REAL,
 		tx_attempts REAL
 	);
@@ -54,10 +55,21 @@ const MIGRATION_SQL = `
 		controller_version TEXT,
 		discovered_client_count INTEGER NOT NULL DEFAULT 0,
 		selected_beacon_count INTEGER NOT NULL DEFAULT 0,
-		poll_interval_seconds INTEGER NOT NULL,
+		poll_interval_seconds REAL NOT NULL,
 		retention_days INTEGER NOT NULL
 	);
 `;
+
+function ensureColumn(
+	database: Database.Database,
+	table: string,
+	column: string,
+	definition: string
+): void {
+	const columns = database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+	if (columns.some((entry) => entry.name === column)) return;
+	database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
 
 export function createDatabase(databasePath: string): AppDatabase {
 	if (databasePath !== ':memory:') {
@@ -69,6 +81,7 @@ export function createDatabase(databasePath: string): AppDatabase {
 	raw.pragma('busy_timeout = 5000');
 	if (databasePath !== ':memory:') raw.pragma('journal_mode = WAL');
 	raw.exec(MIGRATION_SQL);
+	ensureColumn(raw, 'metric_samples', 'ap_name', 'TEXT');
 
 	return {
 		raw,

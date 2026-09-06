@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { deriveRetryPercent, normalizeMac, normalizeStation, signalQuality } from './normalize';
+import {
+	deriveRetryPercent,
+	deviceNamesByMac,
+	normalizeMac,
+	normalizeStation,
+	resolveApName,
+	signalQuality
+} from './normalize';
 
 describe('UniFi station normalization', () => {
 	it('maps the classic client fields and calculated SNR', () => {
@@ -17,6 +24,7 @@ describe('UniFi station normalization', () => {
 			radio_name: 'wifi1',
 			radio_proto: 'ax',
 			ap_mac: '00:11:22:33:44:55',
+			ap_name: 'Office AP',
 			tx_retries: 420,
 			wifi_tx_attempts: 12_000
 		});
@@ -29,8 +37,25 @@ describe('UniFi station normalization', () => {
 			snrDb: 39,
 			txRateKbps: 351_000,
 			rxRateKbps: 520_000,
-			radioProtocol: 'ax'
+			radioProtocol: 'ax',
+			apMac: '00:11:22:33:44:55',
+			apName: 'Office AP'
 		});
+	});
+
+	it('resolves an AP name from the UniFi device inventory', () => {
+		const names = deviceNamesByMac([
+			{ mac: '00:11:22:33:44:55', name: 'Office AP' },
+			{ mac: 'AA:BB:CC:DD:EE:00', hostname: 'Garage AP' }
+		]);
+
+		expect(names.get('00:11:22:33:44:55')).toBe('Office AP');
+		expect(
+			resolveApName({ apMac: 'aa:bb:cc:dd:ee:00', apName: null }, names)
+		).toBe('Garage AP');
+		expect(resolveApName({ apMac: '00:11:22:33:44:55', apName: 'Kitchen AP' }, names)).toBe(
+			'Kitchen AP'
+		);
 	});
 
 	it('rejects wired and malformed clients', () => {

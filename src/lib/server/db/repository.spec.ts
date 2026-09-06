@@ -18,6 +18,7 @@ function sample(sampledAt: number, online: boolean, signalDbm: number | null): M
 		radio: online ? 'wifi1' : null,
 		radioProtocol: online ? 'ax' : null,
 		apMac: online ? '00:11:22:33:44:55' : null,
+		apName: online ? 'Office AP' : null,
 		txRetries: online ? 10 : null,
 		txAttempts: online ? 1000 : null
 	};
@@ -38,6 +39,7 @@ describe('Repository', () => {
 		const history = repository.getMetrics(now - 10_000, now + 1, 100);
 
 		expect(beacon.latest?.online).toBe(false);
+		expect(beacon.latest?.apName).toBeNull();
 		expect(beacon.quality).toBe('unknown');
 		expect(
 			history.series[0].points.some((point) => !point.online && point.signalDbm === null)
@@ -54,6 +56,7 @@ describe('Repository', () => {
 			{ beaconMac: 'aa:bb:cc:dd:ee:ff', ...sample(2000, true, -61) }
 		]);
 
+		expect(repository.listBeacons()[0].latest?.apName).toBe('Office AP');
 		expect(repository.pruneSamples(1500)).toBe(1);
 		expect(repository.countSamples()).toBe(1);
 		database.raw.close();

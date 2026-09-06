@@ -28,6 +28,7 @@ export const metricSamples = sqliteTable(
 		radio: text('radio'),
 		radioProtocol: text('radio_protocol'),
 		apMac: text('ap_mac'),
+		apName: text('ap_name'),
 		txRetries: real('tx_retries'),
 		txAttempts: real('tx_attempts')
 	},
@@ -47,6 +48,6 @@ export const collectorStatus = sqliteTable('collector_status', {
 	controllerVersion: text('controller_version'),
 	discoveredClientCount: integer('discovered_client_count').notNull().default(0),
 	selectedBeaconCount: integer('selected_beacon_count').notNull().default(0),
-	pollIntervalSeconds: integer('poll_interval_seconds').notNull(),
+	pollIntervalSeconds: real('poll_interval_seconds').notNull(),
 	retentionDays: integer('retention_days').notNull()
 });

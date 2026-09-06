@@ -19,15 +19,24 @@ function asBoolean(value: string | undefined, fallback: boolean): boolean {
 	return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
 }
 
+function asBoundedNumber(
+	value: string | undefined,
+	fallback: number,
+	minimum: number,
+	maximum: number
+): number {
+	const parsed = Number.parseFloat(value ?? '');
+	if (!Number.isFinite(parsed)) return fallback;
+	return Math.min(maximum, Math.max(minimum, parsed));
+}
+
 function asBoundedInteger(
 	value: string | undefined,
 	fallback: number,
 	minimum: number,
 	maximum: number
 ): number {
-	const parsed = Number.parseInt(value ?? '', 10);
-	if (!Number.isFinite(parsed)) return fallback;
-	return Math.min(maximum, Math.max(minimum, parsed));
+	return Math.round(asBoundedNumber(value, fallback, minimum, maximum));
 }
 
 export function runningInDocker(): boolean {
@@ -62,7 +71,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 		site: env.UNIFI_SITE || 'default',
 		verifyTls: asBoolean(env.UNIFI_VERIFY_TLS, true),
 		fixtureMode: asBoolean(env.UNIFI_FIXTURE_MODE, false),
-		pollIntervalSeconds: asBoundedInteger(env.POLL_INTERVAL_SECONDS, 30, 10, 3600),
+		pollIntervalSeconds: asBoundedNumber(env.POLL_INTERVAL_SECONDS, 30, 0.5, 3600),
 		retentionDays: asBoundedInteger(env.RETENTION_DAYS, 30, 1, 3650),
 		databasePath: env.DATABASE_PATH || path.join(dataDirectory, 'networker.sqlite')
 	};

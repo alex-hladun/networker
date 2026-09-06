@@ -10,7 +10,9 @@ test('selects a fixture beacon and changes the history view', async ({ page }) =
 	const officeRow = page.locator('.client-row').filter({ hasText: 'Office beacon' });
 	await officeRow.getByRole('button', { name: 'Add Office beacon as a beacon' }).click();
 
-	await expect(page.locator('.beacon-card').filter({ hasText: 'Office beacon' })).toBeVisible();
+	const officeCard = page.locator('.beacon-card').filter({ hasText: 'Office beacon' });
+	await expect(officeCard).toBeVisible();
+	await expect(officeCard.getByText('Office AP')).toBeVisible();
 	await page.getByRole('button', { name: '1H' }).click();
 	await page.getByRole('button', { name: 'SNR', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'SNR over time' })).toBeVisible();

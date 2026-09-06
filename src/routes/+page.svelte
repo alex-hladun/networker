@@ -343,6 +343,11 @@
 											>
 										</div>
 										<div>
+											<span>Access point</span><strong
+												>{beacon.latest?.apName ?? beacon.latest?.apMac ?? '—'}</strong
+											>
+										</div>
+										<div>
 											<span>Channel</span><strong
 												>{displayValue(beacon.latest?.channel)} · {beacon.latest?.radioProtocol?.toUpperCase() ??
 													'—'}</strong

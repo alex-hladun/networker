@@ -51,7 +51,7 @@ export class Repository {
 					b.mac, b.name, b.site, b.enabled, b.created_at,
 					m.sampled_at, m.online, m.signal_dbm, m.noise_dbm, m.snr_db,
 					m.satisfaction, m.tx_rate_kbps, m.rx_rate_kbps, m.retry_percent,
-					m.channel, m.radio, m.radio_protocol, m.ap_mac, m.tx_retries, m.tx_attempts
+					m.channel, m.radio, m.radio_protocol, m.ap_mac, m.ap_name, m.tx_retries, m.tx_attempts
 				FROM beacons b
 				LEFT JOIN metric_samples m ON m.id = (
 					SELECT id FROM metric_samples latest
@@ -112,6 +112,7 @@ export class Repository {
 					radio: sample.radio,
 					radioProtocol: sample.radioProtocol,
 					apMac: sample.apMac,
+					apName: sample.apName,
 					txRetries: sample.txRetries,
 					txAttempts: sample.txAttempts
 				}))
@@ -179,6 +180,7 @@ export class Repository {
 					MAX(m.radio) AS radio,
 					MAX(m.radio_protocol) AS radio_protocol,
 					MAX(m.ap_mac) AS ap_mac,
+					MAX(m.ap_name) AS ap_name,
 					MAX(m.tx_retries) AS tx_retries,
 					MAX(m.tx_attempts) AS tx_attempts
 				FROM metric_samples m
@@ -256,6 +258,7 @@ function mapSample(row: Record<string, unknown>): MetricSample {
 		radio: nullableString(row.radio),
 		radioProtocol: nullableString(row.radio_protocol),
 		apMac: nullableString(row.ap_mac),
+		apName: nullableString(row.ap_name),
 		txRetries: nullableNumber(row.tx_retries),
 		txAttempts: nullableNumber(row.tx_attempts)
 	};

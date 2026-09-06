@@ -1,7 +1,7 @@
 import type { AppConfig } from '../config';
 import { ClassicClient } from './classic-client';
 import { IntegrationClient } from './integration-client';
-import { normalizeStation } from './normalize';
+import { deviceNamesByMac, normalizeStation, resolveApName } from './normalize';
 import type { NetworkProvider, ProviderSnapshot } from './types';
 
 function errorMessage(error: unknown): string {
@@ -18,18 +18,27 @@ export class UniFiProvider implements NetworkProvider {
 	}
 
 	async getSnapshot(): Promise<ProviderSnapshot> {
-		const [integrationResult, stationResult] = await Promise.allSettled([
+		const [integrationResult, stationResult, deviceResult] = await Promise.allSettled([
 			this.integration.discover(),
-			this.classic.getStations()
+			this.classic.getStations(),
+			this.classic.getDevices()
 		]);
 
 		if (stationResult.status === 'rejected') {
 			throw new Error(`Detailed UniFi telemetry failed: ${errorMessage(stationResult.reason)}`);
 		}
 
+		const deviceNames =
+			deviceResult.status === 'fulfilled'
+				? deviceNamesByMac(deviceResult.value)
+				: new Map<string, string>();
 		const stations = stationResult.value
 			.map(normalizeStation)
-			.filter((station) => station !== null);
+			.filter((station) => station !== null)
+			.map((station) => ({
+				...station,
+				apName: resolveApName(station, deviceNames)
+			}));
 		const stationClients = stations.map((station) => ({
 			mac: station.mac,
 			name: station.name,

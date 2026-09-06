@@ -7,6 +7,7 @@ export class ClassicClient {
 	private cookie = '';
 	private csrfToken = '';
 	private siteName: string | null = null;
+	private loginInFlight: Promise<void> | null = null;
 
 	constructor(private readonly config: AppConfig) {
 		this.http = new UniFiHttpClient(config.unifiUrl, config.verifyTls);
@@ -22,6 +23,14 @@ export class ClassicClient {
 	}
 
 	private async login(): Promise<void> {
+		if (this.loginInFlight) return this.loginInFlight;
+		this.loginInFlight = this.authenticate().finally(() => {
+			this.loginInFlight = null;
+		});
+		return this.loginInFlight;
+	}
+
+	private async authenticate(): Promise<void> {
 		const payloads = [
 			{ username: this.config.username, password: this.config.password },
 			{
@@ -124,18 +133,26 @@ export class ClassicClient {
 	}
 
 	async getStations(): Promise<RawStation[]> {
+		return this.getSiteCollection('stat/sta');
+	}
+
+	async getDevices(): Promise<RawStation[]> {
+		return this.getSiteCollection('stat/device');
+	}
+
+	private async getSiteCollection(resource: 'stat/sta' | 'stat/device'): Promise<RawStation[]> {
 		const configuredSite = this.config.site;
-		const staPath = `/proxy/network/api/s/${encodeURIComponent(configuredSite)}/stat/sta`;
+		const path = `/proxy/network/api/s/${encodeURIComponent(configuredSite)}/${resource}`;
 
 		try {
-			return extractCollection(await this.getWithApiKey(staPath));
+			return extractCollection(await this.getWithApiKey(path));
 		} catch {
 			// Official keys do not always authorize classic telemetry; fall back to a local session.
 		}
 
 		const site = await this.resolveSiteName();
 		const payload = await this.authenticatedGet(
-			`/proxy/network/api/s/${encodeURIComponent(site)}/stat/sta`
+			`/proxy/network/api/s/${encodeURIComponent(site)}/${resource}`
 		);
 		return extractCollection(payload);
 	}
