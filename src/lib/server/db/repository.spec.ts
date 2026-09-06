@@ -1,0 +1,61 @@
+import { describe, expect, it } from 'vitest';
+import type { MetricSample } from '$lib/types';
+import { createDatabase } from '.';
+import { Repository } from './repository';
+
+function sample(sampledAt: number, online: boolean, signalDbm: number | null): MetricSample {
+	return {
+		sampledAt,
+		online,
+		signalDbm,
+		noiseDbm: online ? -96 : null,
+		snrDb: online && signalDbm !== null ? signalDbm + 96 : null,
+		satisfaction: online ? 92 : null,
+		txRateKbps: online ? 300_000 : null,
+		rxRateKbps: online ? 400_000 : null,
+		retryPercent: online ? 2 : null,
+		channel: online ? 36 : null,
+		radio: online ? 'wifi1' : null,
+		radioProtocol: online ? 'ax' : null,
+		apMac: online ? '00:11:22:33:44:55' : null,
+		txRetries: online ? 10 : null,
+		txAttempts: online ? 1000 : null
+	};
+}
+
+describe('Repository', () => {
+	it('retains an offline latest sample and exposes chart gaps', () => {
+		const database = createDatabase(':memory:');
+		const repository = new Repository(database);
+		const now = Date.now();
+		repository.upsertBeacon('aa:bb:cc:dd:ee:ff', 'Office', 'default', now - 10_000);
+		repository.recordSamples([
+			{ beaconMac: 'aa:bb:cc:dd:ee:ff', ...sample(now - 5000, true, -59) },
+			{ beaconMac: 'aa:bb:cc:dd:ee:ff', ...sample(now, false, null) }
+		]);
+
+		const [beacon] = repository.listBeacons();
+		const history = repository.getMetrics(now - 10_000, now + 1, 100);
+
+		expect(beacon.latest?.online).toBe(false);
+		expect(beacon.quality).toBe('unknown');
+		expect(
+			history.series[0].points.some((point) => !point.online && point.signalDbm === null)
+		).toBe(true);
+		database.raw.close();
+	});
+
+	it('prunes only samples older than the retention cutoff', () => {
+		const database = createDatabase(':memory:');
+		const repository = new Repository(database);
+		repository.upsertBeacon('aa:bb:cc:dd:ee:ff', 'Office', 'default');
+		repository.recordSamples([
+			{ beaconMac: 'aa:bb:cc:dd:ee:ff', ...sample(1000, true, -60) },
+			{ beaconMac: 'aa:bb:cc:dd:ee:ff', ...sample(2000, true, -61) }
+		]);
+
+		expect(repository.pruneSamples(1500)).toBe(1);
+		expect(repository.countSamples()).toBe(1);
+		database.raw.close();
+	});
+});
