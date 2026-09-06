@@ -4,8 +4,8 @@ A small, self-hosted monitor that treats selected wireless clients as stationary
 the client telemetry reported by UniFi Network and compares signal quality over time in a Svelte
 dashboard.
 
-The application is read-only. It never changes access points, channels, radios, clients, or any other
-UniFi setting.
+The collector is read-only: it does not change access points, channels, radios, or WLAN settings. A
+Reconnect control on each beacon card can ask UniFi to reconnect that wireless client.
 
 ## What it records
 
@@ -29,9 +29,10 @@ because the official connected-client schema does not currently expose those val
    simple local username such as `network-monitor`, set a strong password, and grant **Network →
    View Only** (sometimes labeled **Read Only**). Do not give this account Super Admin, Site Admin,
    or permission to change APs, WLANs, or console settings. Confirm by signing in as that user at
-   the LAN URL: you should see Network data and no settings you can change. A UI.com /
-   `unifi.ui.com` account will not work; the collector posts username and password to
-   `/api/auth/login` on the console.
+   the LAN URL: you should see Network data and no settings you can change. Reconnecting a client
+   from the dashboard needs permission to reconnect wireless clients; a view-only account is enough
+   for monitoring. A UI.com / `unifi.ui.com` account will not work; the collector posts username
+   and password to `/api/auth/login` on the console.
 3. Find the direct LAN URL of the console, such as `https://192.168.1.1`. Copy the origin from the
    address bar when you open the console on the LAN, with no path and no trailing slash. Do not use
    `https://unifi.ui.com/...`. If you only use the cloud portal, the IP is under **Settings →

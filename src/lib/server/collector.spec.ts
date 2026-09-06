@@ -62,6 +62,8 @@ class SequenceProvider implements NetworkProvider {
 	async getSnapshot(): Promise<ProviderSnapshot> {
 		return this.snapshots.shift() ?? snapshot();
 	}
+
+	async reconnectClient(): Promise<void> {}
 }
 
 describe('Collector', () => {

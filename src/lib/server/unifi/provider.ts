@@ -77,4 +77,8 @@ export class UniFiProvider implements NetworkProvider {
 			warning: null
 		};
 	}
+
+	async reconnectClient(mac: string): Promise<void> {
+		await this.classic.reconnectStation(mac);
+	}
 }

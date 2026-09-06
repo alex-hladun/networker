@@ -121,6 +121,22 @@
 		}
 	}
 
+	async function reconnectBeacon(mac: string): Promise<void> {
+		busyMac = mac;
+		try {
+			errorMessage = null;
+			await fetchJson('/api/clients/reconnect', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ mac })
+			});
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : String(error);
+		} finally {
+			busyMac = null;
+		}
+	}
+
 	async function selectRange(value: number): Promise<void> {
 		range = value;
 		try {
@@ -356,6 +372,17 @@
 										</div>
 									</div>
 
+									<div class="card-actions">
+										<button
+											class="reconnect"
+											onclick={() => reconnectBeacon(beacon.mac)}
+											disabled={busyMac === beacon.mac || !beacon.latest?.online}
+											aria-label={`Reconnect ${beacon.name}`}
+										>
+											{busyMac === beacon.mac ? 'Reconnecting…' : 'Reconnect'}
+										</button>
+									</div>
+
 									<button
 										class="remove"
 										onclick={() => removeBeacon(beacon.mac)}
@@ -480,7 +507,7 @@
 	</main>
 
 	<footer>
-		<span>Read-only monitor</span>
+		<span>Local UniFi monitor</span>
 		<span>UniFi {status?.controllerVersion ?? 'not connected'}</span>
 		<span>{status?.retentionDays ?? 30}-day retention</span>
 	</footer>
@@ -1007,6 +1034,28 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.card-actions {
+		display: flex;
+		align-items: center;
+		margin-top: 1rem;
+	}
+
+	.reconnect {
+		border: 1px solid #2d433f;
+		border-radius: 6px;
+		padding: 0.38rem 0.62rem;
+		color: var(--accent);
+		background: var(--accent-soft);
+		font-size: 0.62rem;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.reconnect:hover:not(:disabled) {
+		background: var(--accent);
+		color: #06140f;
 	}
 
 	.remove {

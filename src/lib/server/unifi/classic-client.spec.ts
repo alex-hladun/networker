@@ -4,6 +4,19 @@ import { describe, expect, it } from 'vitest';
 import type { AppConfig } from '../config';
 import { ClassicClient } from './classic-client';
 
+const baseConfig: AppConfig = {
+	unifiUrl: 'http://127.0.0.1',
+	apiKey: 'key',
+	username: 'reader',
+	password: 'secret',
+	site: 'default',
+	verifyTls: true,
+	fixtureMode: false,
+	pollIntervalSeconds: 30,
+	retentionDays: 30,
+	databasePath: ':memory:'
+};
+
 describe('ClassicClient session handling', () => {
 	it('logs in again after an expired client-statistics session', async () => {
 		let loginCount = 0;
@@ -107,6 +120,146 @@ describe('ClassicClient session handling', () => {
 		expect(stations).toHaveLength(1);
 		expect(devices).toEqual([{ mac: '00:11:22:33:44:55', name: 'Office AP', type: 'uap' }]);
 		expect(loginCount).toBe(0);
+		await new Promise<void>((resolve, reject) =>
+			server.close((error) => (error ? reject(error) : resolve()))
+		);
+	});
+
+	it('reconnects a station with an API key and skips login', async () => {
+		let loginCount = 0;
+		let reconnectBody = '';
+		const server = createServer((request, response) => {
+			response.setHeader('content-type', 'application/json');
+			if (request.url === '/api/auth/login') {
+				loginCount += 1;
+				response.statusCode = 403;
+				response.end(JSON.stringify({ message: 'Invalid username or password' }));
+				return;
+			}
+			if (request.headers['x-api-key'] === 'key' && request.url?.includes('/cmd/stamgr')) {
+				let body = '';
+				request.on('data', (chunk) => {
+					body += chunk;
+				});
+				request.on('end', () => {
+					reconnectBody = body;
+					response.end(JSON.stringify({ meta: { rc: 'ok' }, data: [] }));
+				});
+				return;
+			}
+			response.statusCode = 404;
+			response.end('{}');
+		});
+
+		await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+		const port = (server.address() as AddressInfo).port;
+		const client = new ClassicClient({
+			...baseConfig,
+			unifiUrl: `http://127.0.0.1:${port}`
+		});
+
+		await client.reconnectStation('aa:bb:cc:dd:ee:ff');
+		expect(loginCount).toBe(0);
+		expect(JSON.parse(reconnectBody)).toEqual({ cmd: 'kick-sta', mac: 'aa:bb:cc:dd:ee:ff' });
+		await new Promise<void>((resolve, reject) =>
+			server.close((error) => (error ? reject(error) : resolve()))
+		);
+	});
+
+	it('reconnects a station with a local session after the API key is denied', async () => {
+		let loginCount = 0;
+		let reconnectBody = '';
+		const server = createServer((request, response) => {
+			response.setHeader('content-type', 'application/json');
+			if (request.headers['x-api-key'] && request.url?.includes('/cmd/stamgr')) {
+				response.statusCode = 403;
+				response.end(JSON.stringify({ meta: { msg: 'api.err.NoPermission' } }));
+				return;
+			}
+			if (request.url === '/api/auth/login') {
+				loginCount += 1;
+				response.setHeader('set-cookie', `TOKEN=session-${loginCount}; Path=/; HttpOnly`);
+				response.end('{}');
+				return;
+			}
+			if (request.url === '/proxy/network/api/self/sites') {
+				response.end(JSON.stringify({ data: [{ name: 'default', desc: 'Default' }] }));
+				return;
+			}
+			if (request.url === '/proxy/network/api/s/default/cmd/stamgr') {
+				let body = '';
+				request.on('data', (chunk) => {
+					body += chunk;
+				});
+				request.on('end', () => {
+					reconnectBody = body;
+					response.end(JSON.stringify({ meta: { rc: 'ok' }, data: [] }));
+				});
+				return;
+			}
+			response.statusCode = 404;
+			response.end('{}');
+		});
+
+		await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+		const port = (server.address() as AddressInfo).port;
+		const client = new ClassicClient({
+			...baseConfig,
+			unifiUrl: `http://127.0.0.1:${port}`
+		});
+
+		await client.reconnectStation('aa:bb:cc:dd:ee:ff');
+		expect(loginCount).toBe(1);
+		expect(JSON.parse(reconnectBody)).toEqual({ cmd: 'kick-sta', mac: 'aa:bb:cc:dd:ee:ff' });
+		await new Promise<void>((resolve, reject) =>
+			server.close((error) => (error ? reject(error) : resolve()))
+		);
+	});
+
+	it('retries reconnect after an expired session', async () => {
+		let loginCount = 0;
+		let stamgrCount = 0;
+		const server = createServer((request, response) => {
+			response.setHeader('content-type', 'application/json');
+			if (request.headers['x-api-key'] && request.url?.includes('/cmd/stamgr')) {
+				response.statusCode = 403;
+				response.end(JSON.stringify({ meta: { msg: 'api.err.NoPermission' } }));
+				return;
+			}
+			if (request.url === '/api/auth/login') {
+				loginCount += 1;
+				response.setHeader('set-cookie', `TOKEN=session-${loginCount}; Path=/; HttpOnly`);
+				response.end('{}');
+				return;
+			}
+			if (request.url === '/proxy/network/api/self/sites') {
+				response.end(JSON.stringify({ data: [{ name: 'default', desc: 'Default' }] }));
+				return;
+			}
+			if (request.url === '/proxy/network/api/s/default/cmd/stamgr') {
+				stamgrCount += 1;
+				if (stamgrCount === 1) {
+					response.statusCode = 401;
+					response.end(JSON.stringify({ meta: { msg: 'api.err.LoginRequired' } }));
+					return;
+				}
+				response.end(JSON.stringify({ meta: { rc: 'ok' }, data: [] }));
+				return;
+			}
+			response.statusCode = 404;
+			response.end('{}');
+		});
+
+		await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+		const port = (server.address() as AddressInfo).port;
+		const client = new ClassicClient({
+			...baseConfig,
+			unifiUrl: `http://127.0.0.1:${port}`
+		});
+
+		await client.reconnectStation('aa:bb:cc:dd:ee:ff');
+		expect(loginCount).toBe(2);
+		expect(stamgrCount).toBe(2);
 		await new Promise<void>((resolve, reject) =>
 			server.close((error) => (error ? reject(error) : resolve()))
 		);

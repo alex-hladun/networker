@@ -19,4 +19,5 @@ export type ProviderSnapshot = {
 
 export interface NetworkProvider {
 	getSnapshot(): Promise<ProviderSnapshot>;
+	reconnectClient(mac: string): Promise<void>;
 }

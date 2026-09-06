@@ -1,5 +1,5 @@
 import type { AppConfig } from '../config';
-import { extractCollection, UniFiHttpClient, UniFiHttpError } from './http';
+import { asRecord, extractCollection, UniFiHttpClient, UniFiHttpError } from './http';
 import type { RawStation } from './types';
 
 export class ClassicClient {
@@ -82,14 +82,21 @@ export class ClassicClient {
 		return response.json();
 	}
 
-	private async authenticatedGet(path: string, retry = true): Promise<unknown> {
+	private async authenticatedRequest(
+		path: string,
+		init: { method?: string; headers?: Record<string, string>; body?: string } = {},
+		retry = true
+	): Promise<unknown> {
 		if (!this.cookie) await this.login();
 
 		try {
 			const response = await this.http.request(path, {
+				method: init.method,
+				body: init.body,
 				headers: {
 					cookie: this.cookie,
-					...(this.csrfToken ? { 'x-csrf-token': this.csrfToken } : {})
+					...(this.csrfToken ? { 'x-csrf-token': this.csrfToken } : {}),
+					...init.headers
 				}
 			});
 			this.captureSession(response);
@@ -103,10 +110,27 @@ export class ClassicClient {
 				this.cookie = '';
 				this.csrfToken = '';
 				await this.login();
-				return this.authenticatedGet(path, false);
+				return this.authenticatedRequest(path, init, false);
 			}
 			throw error;
 		}
+	}
+
+	private async authenticatedGet(path: string): Promise<unknown> {
+		return this.authenticatedRequest(path);
+	}
+
+	private assertCommandOk(payload: unknown): void {
+		const meta = asRecord(asRecord(payload)?.meta);
+		if (meta && typeof meta.rc === 'string' && meta.rc !== 'ok') {
+			throw new Error(
+				typeof meta.msg === 'string' ? meta.msg : 'UniFi rejected the reconnect command.'
+			);
+		}
+	}
+
+	private stamgrPath(site: string): string {
+		return `/proxy/network/api/s/${encodeURIComponent(site)}/cmd/stamgr`;
 	}
 
 	private async resolveSiteName(): Promise<string> {
@@ -138,6 +162,44 @@ export class ClassicClient {
 
 	async getDevices(): Promise<RawStation[]> {
 		return this.getSiteCollection('stat/device');
+	}
+
+	async reconnectStation(mac: string): Promise<void> {
+		const body = JSON.stringify({ cmd: 'kick-sta', mac });
+		const headers = { 'content-type': 'application/json' };
+
+		try {
+			const payload = await this.http
+				.request(this.stamgrPath(this.config.site), {
+					method: 'POST',
+					headers: { ...headers, 'x-api-key': this.config.apiKey },
+					body
+				})
+				.then((response) => response.json());
+			this.assertCommandOk(payload);
+			return;
+		} catch {
+			// Official keys do not always authorize client commands; fall back to a local session.
+		}
+
+		const site = await this.resolveSiteName();
+		try {
+			this.assertCommandOk(
+				await this.authenticatedRequest(this.stamgrPath(site), {
+					method: 'POST',
+					headers,
+					body
+				})
+			);
+		} catch (error) {
+			if (error instanceof UniFiHttpError && (error.status === 401 || error.status === 403)) {
+				throw new Error(
+					'UniFi denied the reconnect. The local account needs permission to reconnect clients.',
+					{ cause: error }
+				);
+			}
+			throw error;
+		}
 	}
 
 	private async getSiteCollection(resource: 'stat/sta' | 'stat/device'): Promise<RawStation[]> {

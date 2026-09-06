@@ -55,4 +55,6 @@ export class FixtureProvider implements NetworkProvider {
 			warning: 'Fixture mode is active; values are simulated.'
 		};
 	}
+
+	async reconnectClient(): Promise<void> {}
 }

@@ -3,6 +3,7 @@ import { loadConfig, type AppConfig } from './config';
 import { createDatabase, type AppDatabase } from './db';
 import { Repository } from './db/repository';
 import { FixtureProvider } from './unifi/fixture-provider';
+import type { NetworkProvider } from './unifi/types';
 import { UniFiProvider } from './unifi/provider';
 
 export type Runtime = {
@@ -10,6 +11,7 @@ export type Runtime = {
 	database: AppDatabase;
 	repository: Repository;
 	collector: Collector;
+	provider: NetworkProvider;
 };
 
 const globalRuntime = globalThis as typeof globalThis & {
@@ -26,7 +28,8 @@ export function getRuntime(): Runtime {
 			config,
 			database,
 			repository,
-			collector: new Collector(config, repository, provider)
+			collector: new Collector(config, repository, provider),
+			provider
 		};
 	}
 	return globalRuntime.__unifiBeaconRuntime;
