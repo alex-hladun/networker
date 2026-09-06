@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { env } from '$env/dynamic/public';
 	import { onMount } from 'svelte';
 	import MetricChart from '$lib/components/MetricChart.svelte';
 	import { filterChartSeries, listAccessPoints } from '$lib/chart-filters';
+	import { DemoRuntime } from '$lib/demo/runtime';
 	import {
 		QUALITY_ZONES,
 		ZONE_LABELS,
@@ -41,6 +43,8 @@
 		{ label: '30D', value: 30 * 24 * 60 * 60 * 1000 }
 	];
 	const LIVE_RANGE_MS = 60 * 60 * 1000;
+	const demoMode = env.PUBLIC_DEMO === 'true';
+	const demo = demoMode ? new DemoRuntime() : null;
 
 	let status = $state<CollectorStatus | null>(null);
 	let beacons = $state<Beacon[]>([]);
@@ -89,20 +93,29 @@
 	async function loadHistory(): Promise<void> {
 		const to = Date.now();
 		const from = to - range;
-		history = await fetchJson<MetricsResponse>(`/api/metrics?from=${from}&to=${to}`);
+		history = demo
+			? demo.getMetrics(from, to)
+			: await fetchJson<MetricsResponse>(`/api/metrics?from=${from}&to=${to}`);
 	}
 
 	async function refreshAll(): Promise<void> {
 		try {
 			errorMessage = null;
-			const [newStatus, newBeacons, newClients] = await Promise.all([
-				fetchJson<CollectorStatus>('/api/status'),
-				fetchJson<Beacon[]>('/api/beacons'),
-				fetchJson<ClientOption[]>('/api/clients')
-			]);
-			status = newStatus;
-			beacons = newBeacons;
-			clients = newClients;
+			if (demo) {
+				demo.refresh();
+				status = demo.getStatus();
+				beacons = demo.getBeacons();
+				clients = demo.getClients();
+			} else {
+				const [newStatus, newBeacons, newClients] = await Promise.all([
+					fetchJson<CollectorStatus>('/api/status'),
+					fetchJson<Beacon[]>('/api/beacons'),
+					fetchJson<ClientOption[]>('/api/clients')
+				]);
+				status = newStatus;
+				beacons = newBeacons;
+				clients = newClients;
+			}
 			await loadHistory();
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : String(error);
@@ -114,11 +127,15 @@
 	async function addBeacon(client: ClientOption): Promise<void> {
 		busyMac = client.mac;
 		try {
-			await fetchJson('/api/beacons', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ mac: client.mac, name: client.name })
-			});
+			if (demo) {
+				demo.addBeacon(client.mac, client.name);
+			} else {
+				await fetchJson('/api/beacons', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ mac: client.mac, name: client.name })
+				});
+			}
 			await refreshAll();
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : String(error);
@@ -130,11 +147,15 @@
 	async function removeBeacon(mac: string): Promise<void> {
 		busyMac = mac;
 		try {
-			await fetchJson('/api/beacons', {
-				method: 'DELETE',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ mac })
-			});
+			if (demo) {
+				demo.removeBeacon(mac);
+			} else {
+				await fetchJson('/api/beacons', {
+					method: 'DELETE',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ mac })
+				});
+			}
 			await refreshAll();
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : String(error);
@@ -147,11 +168,15 @@
 		busyMac = mac;
 		try {
 			errorMessage = null;
-			await fetchJson('/api/clients/reconnect', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ mac })
-			});
+			if (demo) {
+				demo.reconnectClient();
+			} else {
+				await fetchJson('/api/clients/reconnect', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ mac })
+				});
+			}
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : String(error);
 		} finally {

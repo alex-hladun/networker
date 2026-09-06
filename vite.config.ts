@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config';
-import adapter from '@sveltejs/adapter-node';
+import adapterNode from '@sveltejs/adapter-node';
+import adapterStatic from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
+
+const demo = process.env.PUBLIC_DEMO === 'true';
 
 export default defineConfig({
 	plugins: [
@@ -10,7 +13,12 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			adapter: demo
+				? adapterStatic({ fallback: '404.html', strict: false })
+				: adapterNode(),
+			paths: {
+				base: (process.env.BASE_PATH || '') as '' | `/${string}`
+			}
 		})
 	],
 	test: {

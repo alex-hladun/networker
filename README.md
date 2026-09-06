@@ -1,5 +1,7 @@
 # UniFi Wi-Fi Beacon Monitor
 
+**[Live demo](https://alex-hladun.github.io/networker/)** — simulated beacons, no UniFi console required.
+
 A small, self-hosted monitor that treats selected wireless clients as stationary beacons. It records
 the client telemetry reported by UniFi Network and compares signal quality over time in a Svelte
 dashboard.
