@@ -23,9 +23,21 @@ because the official connected-client schema does not currently expose those val
 
 1. In **UniFi Network → Settings → Control Plane → Integrations**, create an API key from a
    read-only administrator.
-2. Create a dedicated **local** UniFi OS account with view-only Network access. Do not use a personal
-   UI.com account or give this account configuration permissions.
-3. Find the direct LAN URL of the console, such as `https://192.168.1.1`.
+2. Create a dedicated **local** UniFi OS account with view-only Network access. Do this as an Owner
+   or Super Admin in **console / OS settings → Admins** (or **Control Plane → Admins**). Add an admin
+   as **Local Access**, **Local Only**, or **Create local admin** — not a UI.com email invite. Use a
+   simple local username such as `network-monitor`, set a strong password, and grant **Network →
+   View Only** (sometimes labeled **Read Only**). Do not give this account Super Admin, Site Admin,
+   or permission to change APs, WLANs, or console settings. Confirm by signing in as that user at
+   the LAN URL: you should see Network data and no settings you can change. A UI.com /
+   `unifi.ui.com` account will not work; the collector posts username and password to
+   `/api/auth/login` on the console.
+3. Find the direct LAN URL of the console, such as `https://192.168.1.1`. Copy the origin from the
+   address bar when you open the console on the LAN, with no path and no trailing slash. Do not use
+   `https://unifi.ui.com/...`. If you only use the cloud portal, the IP is under **Settings →
+   Control Plane → Console** (or **System** / console info) as **Local Access** / **LAN IP**. If the
+   UniFi box is your router, that is usually the default gateway. An IP is more reliable than
+   `https://unifi` or `https://unifi.local`.
 4. Copy `.env.example` to `.env` and enter the URL, API key, and local account credentials.
 5. Leave `UNIFI_SITE=default` for the usual single-site setup. A site display name also works.
 6. Prefer a trusted console certificate. If the console only has its factory self-signed certificate,
