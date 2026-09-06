@@ -9,7 +9,8 @@ dashboard.
 The collector is read-only: it does not change access points, channels, radios, or WLAN settings. A
 Reconnect control on each beacon card can ask UniFi to reconnect that wireless client. Hovering the
 history chart lists every selected device at that time; use the Tooltip chips to choose which
-fields appear (signal, SNR, noise, satisfaction, rates, retries, AP, and channel).
+fields appear (signal, SNR, noise, satisfaction, rates, retries, AP, and channel). The history
+panel has a full-screen control that expands it to fill the app below the header.
 
 ## What it records
 

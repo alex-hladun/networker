@@ -28,6 +28,7 @@
 		to?: number;
 		emptyDetail?: string;
 		tooltipMetrics?: readonly TooltipMetric[];
+		fill?: boolean;
 	};
 
 	let {
@@ -38,8 +39,10 @@
 		from,
 		to,
 		emptyDetail = 'Leave the collector running or choose a wider time range.',
-		tooltipMetrics = ALL_TOOLTIP_METRICS
+		tooltipMetrics = ALL_TOOLTIP_METRICS,
+		fill = false
 	}: Props = $props();
+	let wrap = $state<HTMLDivElement>();
 	let canvas = $state<HTMLCanvasElement>();
 	let chart: ChartInstance | null = null;
 	let ChartConstructor: typeof import('chart.js').Chart | null = null;
@@ -273,9 +276,21 @@
 	$effect(() => {
 		draw();
 	});
+
+	$effect(() => {
+		void fill;
+		if (!wrap) return;
+		const frame = requestAnimationFrame(() => chart?.resize());
+		const observer = new ResizeObserver(() => chart?.resize());
+		observer.observe(wrap);
+		return () => {
+			cancelAnimationFrame(frame);
+			observer.disconnect();
+		};
+	});
 </script>
 
-<div class="chart-wrap">
+<div class="chart-wrap" class:fill bind:this={wrap}>
 	{#if series.length === 0 || series.every((beacon) => beacon.points.length === 0)}
 		<div class="empty">
 			<div class="empty-icon">⌁</div>
@@ -306,6 +321,12 @@
 		min-height: 300px;
 		display: flex;
 		flex-direction: column;
+	}
+
+	.chart-wrap.fill {
+		height: 100%;
+		min-height: 0;
+		flex: 1;
 	}
 
 	.chart-canvas {

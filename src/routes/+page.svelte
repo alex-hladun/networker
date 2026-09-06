@@ -4,18 +4,9 @@
 	import { onMount } from 'svelte';
 	import MetricChart from '$lib/components/MetricChart.svelte';
 	import { filterChartSeries, listAccessPoints } from '$lib/chart-filters';
-	import {
-		ALL_TOOLTIP_METRICS,
-		TOOLTIP_METRICS,
-		type TooltipMetric
-	} from '$lib/chart-tooltip';
+	import { ALL_TOOLTIP_METRICS, TOOLTIP_METRICS, type TooltipMetric } from '$lib/chart-tooltip';
 	import { DemoRuntime } from '$lib/demo/runtime';
-	import {
-		QUALITY_ZONES,
-		ZONE_LABELS,
-		qualityLabel,
-		type QualityZone
-	} from '$lib/metric-zones';
+	import { QUALITY_ZONES, ZONE_LABELS, qualityLabel, type QualityZone } from '$lib/metric-zones';
 	import type { Beacon, CollectorStatus, DiscoveredClient, MetricsResponse } from '$lib/types';
 
 	type ClientOption = DiscoveredClient & { selected: boolean };
@@ -64,6 +55,7 @@
 	let loading = $state(true);
 	let busyMac = $state<string | null>(null);
 	let errorMessage = $state<string | null>(null);
+	let chartExpanded = $state(false);
 
 	const filteredClients = $derived(
 		clients.filter((client) => {
@@ -246,6 +238,10 @@
 		selectedTooltipMetrics = [...selectedTooltipMetrics, key];
 	}
 
+	function toggleChartExpanded(): void {
+		chartExpanded = !chartExpanded;
+	}
+
 	function toggleBand(zone: QualityZone): void {
 		if (allBandsSelected) {
 			selectedBands = [zone];
@@ -261,6 +257,21 @@
 
 	onMount(() => {
 		void refreshAll();
+	});
+
+	$effect(() => {
+		document.body.classList.toggle('chart-expanded', chartExpanded);
+		if (!chartExpanded) {
+			return () => document.body.classList.remove('chart-expanded');
+		}
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key === 'Escape' || event.code === 'Escape') chartExpanded = false;
+		};
+		document.addEventListener('keydown', onKey);
+		return () => {
+			document.removeEventListener('keydown', onKey);
+			document.body.classList.remove('chart-expanded');
+		};
 	});
 
 	$effect(() => {
@@ -508,20 +519,48 @@
 					{/if}
 				</section>
 
-				<section class="section chart-section">
+				<section class="section chart-section" class:expanded={chartExpanded}>
 					<div class="section-heading chart-heading">
 						<div>
 							<p class="eyebrow">History</p>
 							<h2>{metricConfig.label} over time</h2>
 						</div>
-						<div class="range-picker" aria-label="Chart time range">
-							{#each availableRanges as option (option.value)}
-								<button
-									class:active={range === option.value}
-									aria-pressed={range === option.value}
-									onclick={() => selectRange(option.value)}>{option.label}</button
-								>
-							{/each}
+						<div class="chart-tools">
+							<div class="range-picker" aria-label="Chart time range">
+								{#each availableRanges as option (option.value)}
+									<button
+										class:active={range === option.value}
+										aria-pressed={range === option.value}
+										onclick={() => selectRange(option.value)}>{option.label}</button
+									>
+								{/each}
+							</div>
+							<button
+								class="expand"
+								type="button"
+								aria-pressed={chartExpanded}
+								aria-label={chartExpanded
+									? 'Exit full screen history'
+									: 'Expand history to full screen'}
+								title={chartExpanded ? 'Exit full screen' : 'Full screen'}
+								onclick={toggleChartExpanded}
+							>
+								{#if chartExpanded}
+									<svg viewBox="0 0 24 24" aria-hidden="true">
+										<path d="M8 3v3a2 2 0 0 1-2 2H3" />
+										<path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+										<path d="M3 16h3a2 2 0 0 1 2 2v3" />
+										<path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+									</svg>
+								{:else}
+									<svg viewBox="0 0 24 24" aria-hidden="true">
+										<path d="M8 3H5a2 2 0 0 0-2 2v3" />
+										<path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+										<path d="M3 16v3a2 2 0 0 0 2 2h3" />
+										<path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+									</svg>
+								{/if}
+							</button>
 						</div>
 					</div>
 
@@ -595,6 +634,7 @@
 							to={history?.to}
 							emptyDetail={chartEmptyDetail}
 							tooltipMetrics={selectedTooltipMetrics}
+							fill={chartExpanded}
 						/>
 						<div class="chart-foot">
 							<span>Bucket: {history?.bucketSeconds ?? status?.pollIntervalSeconds ?? 30}s</span>
@@ -713,6 +753,11 @@
 		--accent-soft: rgba(36, 214, 167, 0.11);
 		--warning: #f6b950;
 		--danger: #f07b91;
+		--topbar-height: 76px;
+	}
+
+	:global(body.chart-expanded) {
+		overflow: hidden;
 	}
 
 	button,
@@ -1303,6 +1348,68 @@
 		align-items: center;
 	}
 
+	.chart-tools {
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+	}
+
+	button.expand {
+		width: 2.1rem;
+		height: 2.1rem;
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		padding: 0;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		color: var(--muted);
+		background: #0a141c;
+		cursor: pointer;
+	}
+
+	button.expand:hover,
+	button.expand[aria-pressed='true'] {
+		color: var(--text);
+		border-color: #2b3d49;
+		background: #111f29;
+	}
+
+	button.expand svg {
+		width: 1.05rem;
+		height: 1.05rem;
+	}
+
+	.chart-section.expanded {
+		position: fixed;
+		top: var(--topbar-height);
+		right: 0;
+		bottom: 0;
+		left: 0;
+		z-index: 15;
+		margin: 0;
+		padding: 1.1rem max(24px, calc((100vw - 1480px) / 2));
+		display: flex;
+		flex-direction: column;
+		overflow: auto;
+		background:
+			radial-gradient(circle at 15% -10%, rgba(33, 210, 164, 0.1), transparent 32rem),
+			linear-gradient(180deg, #09131b 0%, #071017 100%);
+	}
+
+	.chart-section.expanded .chart-heading,
+	.chart-section.expanded .metric-picker,
+	.chart-section.expanded .chart-filters {
+		flex-shrink: 0;
+	}
+
+	.chart-section.expanded .chart-card {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
 	.range-picker,
 	.metric-picker {
 		display: flex;
@@ -1597,6 +1704,10 @@
 	}
 
 	@media (max-width: 760px) {
+		:global(:root) {
+			--topbar-height: 68px;
+		}
+
 		.topbar {
 			height: 68px;
 			padding: 0 16px;
@@ -1643,9 +1754,17 @@
 			display: block;
 		}
 
+		.chart-tools {
+			margin-top: 1rem;
+			flex-wrap: wrap;
+		}
+
 		.range-picker {
 			width: max-content;
-			margin-top: 1rem;
+		}
+
+		.chart-section.expanded {
+			padding: 0.9rem 16px 1rem;
 		}
 
 		.chart-card {
