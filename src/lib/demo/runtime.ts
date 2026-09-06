@@ -5,6 +5,7 @@ import type {
 	DiscoveredClient,
 	MetricSample,
 	MetricsResponse,
+	Scenario,
 	SignalQuality
 } from '$lib/types';
 import {
@@ -58,7 +59,11 @@ function retryPercent(
 export class DemoRuntime {
 	private readonly selected = new Map<string, { name: string; createdAt: number }>();
 	private readonly samples: StoredSample[] = [];
-	private readonly counters = new Map<string, { txRetries: number | null; txAttempts: number | null }>();
+	private readonly counters = new Map<
+		string,
+		{ txRetries: number | null; txAttempts: number | null }
+	>();
+	private scenarios: Scenario[] = [];
 	private lastPollSucceededAt: number | null = null;
 
 	constructor(now = Date.now()) {
@@ -151,6 +156,22 @@ export class DemoRuntime {
 
 	refresh(now = Date.now()): void {
 		this.recordAt(now);
+	}
+
+	listScenarios(): Scenario[] {
+		return [...this.scenarios].sort((left, right) => right.createdAt - left.createdAt);
+	}
+
+	saveScenario(scenario: Scenario): Scenario {
+		this.scenarios = [scenario, ...this.scenarios.filter((item) => item.id !== scenario.id)];
+		return scenario;
+	}
+
+	deleteScenario(id: string): boolean {
+		const next = this.scenarios.filter((item) => item.id !== id);
+		const removed = next.length !== this.scenarios.length;
+		this.scenarios = next;
+		return removed;
 	}
 
 	private seed(now: number, durationMs: number, stepMs: number): void {

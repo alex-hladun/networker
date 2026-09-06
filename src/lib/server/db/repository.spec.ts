@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildScenario } from '$lib/scenarios';
 import type { MetricSample } from '$lib/types';
 import { createDatabase } from '.';
 import { Repository } from './repository';
@@ -78,6 +79,31 @@ describe('Repository', () => {
 		expect(repository.listBeacons()[0].latest?.apName).toBe('Office AP');
 		expect(repository.pruneSamples(1500)).toBe(1);
 		expect(repository.countSamples()).toBe(1);
+		database.raw.close();
+	});
+
+	it('stores a time-range scenario with frozen per-beacon averages', () => {
+		const database = createDatabase(':memory:');
+		const repository = new Repository(database);
+		const scenario = buildScenario({
+			id: 'scn-1',
+			name: 'Evening baseline',
+			createdAt: 8_000,
+			from: 1_000,
+			to: 2_000,
+			series: [
+				{
+					mac: 'aa:bb:cc:dd:ee:ff',
+					name: 'Office',
+					points: [sample(1_000, true, -60), sample(2_000, true, -50)]
+				}
+			]
+		});
+
+		repository.saveScenario(scenario);
+		expect(repository.listScenarios()).toEqual([scenario]);
+		expect(repository.deleteScenario('scn-1')).toBe(true);
+		expect(repository.listScenarios()).toEqual([]);
 		database.raw.close();
 	});
 });

@@ -42,6 +42,15 @@ const MIGRATION_SQL = `
 	CREATE INDEX IF NOT EXISTS metric_samples_beacon_time_idx
 		ON metric_samples(beacon_mac, sampled_at);
 
+	CREATE TABLE IF NOT EXISTS scenarios (
+		id TEXT PRIMARY KEY NOT NULL,
+		name TEXT NOT NULL,
+		range_from INTEGER NOT NULL,
+		range_to INTEGER NOT NULL,
+		created_at INTEGER NOT NULL,
+		beacons_json TEXT NOT NULL
+	);
+
 	CREATE TABLE IF NOT EXISTS collector_status (
 		id INTEGER PRIMARY KEY NOT NULL,
 		mode TEXT NOT NULL,

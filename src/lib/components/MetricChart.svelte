@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import type { Chart as ChartInstance, Plugin } from 'chart.js';
 	import {
 		QUALITY_ZONES,
@@ -11,7 +11,8 @@
 		type ZoneBand
 	} from '$lib/metric-zones';
 	import { ALL_TOOLTIP_METRICS, tooltipMetricLines, type TooltipMetric } from '$lib/chart-tooltip';
-	import type { BeaconSeries, MetricSample } from '$lib/types';
+	import { finalizeChartSelection } from '$lib/scenarios';
+	import type { BeaconSeries, MetricSample, TimeRange } from '$lib/types';
 
 	type ChartPoint = { x: number; y: number | null; sample: MetricSample };
 
@@ -29,6 +30,8 @@
 		emptyDetail?: string;
 		tooltipMetrics?: readonly TooltipMetric[];
 		fill?: boolean;
+		selectedRange?: TimeRange | null;
+		onrangeselect?: (range: TimeRange) => void;
 	};
 
 	let {
@@ -40,7 +43,9 @@
 		to,
 		emptyDetail = 'Leave the collector running or choose a wider time range.',
 		tooltipMetrics = ALL_TOOLTIP_METRICS,
-		fill = false
+		fill = false,
+		selectedRange = null,
+		onrangeselect
 	}: Props = $props();
 	let wrap = $state<HTMLDivElement>();
 	let canvas = $state<HTMLCanvasElement>();
@@ -49,6 +54,12 @@
 	let drawnMetric: ChartMetric | null = null;
 	let drawnFormat: 'date' | 'seconds' | 'time' | null = null;
 	let activeTooltipMetrics: readonly TooltipMetric[] = ALL_TOOLTIP_METRICS;
+	let dragging = $state(false);
+	let dragStart = 0;
+	let dragCurrent = 0;
+	let overlayBox = $state<{ left: number; top: number; width: number; height: number } | null>(
+		null
+	);
 
 	const colors = ['#24d6a7', '#73a8ff', '#f6b950', '#f07b91', '#a78bfa', '#2dd4bf'];
 	const bands = $derived(zoneBands(metric));
@@ -167,6 +178,7 @@
 			yScale.min = model.axisRange.min;
 			yScale.max = model.axisRange.max;
 			chart.update('none');
+			untrack(() => syncOverlay());
 			return;
 		}
 
@@ -257,6 +269,93 @@
 				}
 			}
 		});
+		untrack(() => syncOverlay());
+	}
+
+	function activeRange(): TimeRange | null {
+		if (dragging) return finalizeChartSelection(dragStart, dragCurrent, { minDurationMs: 1 });
+		return selectedRange ?? null;
+	}
+
+	function timeAt(clientX: number, clamp = false): number | null {
+		if (!chart || !canvas) return null;
+		const xScale = chart.scales.x;
+		const area = chart.chartArea;
+		if (!xScale || !area) return null;
+		const x = clientX - canvas.getBoundingClientRect().left;
+		if (!clamp && (x < area.left || x > area.right)) return null;
+		const value = xScale.getValueForPixel(Math.min(area.right, Math.max(area.left, x)));
+		return typeof value === 'number' && Number.isFinite(value) ? value : null;
+	}
+
+	function setTooltipEnabled(enabled: boolean): void {
+		const tooltip = chart?.options.plugins?.tooltip;
+		if (tooltip && typeof tooltip === 'object') tooltip.enabled = enabled;
+	}
+
+	function syncOverlay(): void {
+		const range = activeRange();
+		if (!chart || !range) {
+			overlayBox = null;
+			return;
+		}
+		const xScale = chart.scales.x;
+		const area = chart.chartArea;
+		if (!xScale || !area) {
+			overlayBox = null;
+			return;
+		}
+		const left = Math.max(area.left, xScale.getPixelForValue(range.from));
+		const right = Math.min(area.right, xScale.getPixelForValue(range.to));
+		if (!(right > left) || range.to < Number(xScale.min) || range.from > Number(xScale.max)) {
+			overlayBox = null;
+			return;
+		}
+		overlayBox = {
+			left,
+			top: area.top,
+			width: right - left,
+			height: area.height
+		};
+	}
+
+	function onPointerDown(event: PointerEvent): void {
+		if (event.pointerType === 'mouse' && event.button !== 0) return;
+		const time = timeAt(event.clientX);
+		if (time === null) return;
+		event.preventDefault();
+		dragging = true;
+		dragStart = time;
+		dragCurrent = time;
+		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+		setTooltipEnabled(false);
+		syncOverlay();
+	}
+
+	function onPointerMove(event: PointerEvent): void {
+		if (!dragging) return;
+		const time = timeAt(event.clientX, true);
+		if (time === null) return;
+		dragCurrent = time;
+		syncOverlay();
+	}
+
+	function onPointerUp(event: PointerEvent): void {
+		if (!dragging) return;
+		dragging = false;
+		setTooltipEnabled(true);
+		const startPixel = chart?.scales.x.getPixelForValue(dragStart) ?? 0;
+		const endPixel = chart?.scales.x.getPixelForValue(dragCurrent) ?? 0;
+		const range =
+			Math.abs(endPixel - startPixel) >= 8 ? finalizeChartSelection(dragStart, dragCurrent) : null;
+		if (range) onrangeselect?.(range);
+		syncOverlay();
+		if (
+			event.currentTarget instanceof HTMLElement &&
+			event.currentTarget.hasPointerCapture(event.pointerId)
+		) {
+			event.currentTarget.releasePointerCapture(event.pointerId);
+		}
 	}
 
 	onMount(() => {
@@ -280,13 +379,24 @@
 	$effect(() => {
 		void fill;
 		if (!wrap) return;
-		const frame = requestAnimationFrame(() => chart?.resize());
-		const observer = new ResizeObserver(() => chart?.resize());
+		const frame = requestAnimationFrame(() => {
+			chart?.resize();
+			syncOverlay();
+		});
+		const observer = new ResizeObserver(() => {
+			chart?.resize();
+			syncOverlay();
+		});
 		observer.observe(wrap);
 		return () => {
 			cancelAnimationFrame(frame);
 			observer.disconnect();
 		};
+	});
+
+	$effect(() => {
+		void selectedRange;
+		syncOverlay();
 	});
 </script>
 
@@ -298,8 +408,25 @@
 			<span>{emptyDetail}</span>
 		</div>
 	{:else}
-		<div class="chart-canvas">
-			<canvas bind:this={canvas} aria-label={`${label} history chart`}></canvas>
+		<div class="chart-canvas" class:selecting={dragging}>
+			<canvas
+				bind:this={canvas}
+				aria-label={`${label} history chart. Drag to select a time range.`}
+				onpointerdown={onPointerDown}
+				onpointermove={onPointerMove}
+				onpointerup={onPointerUp}
+				onpointercancel={onPointerUp}
+			></canvas>
+			{#if overlayBox}
+				<div
+					class="range-overlay"
+					style:left={`${overlayBox.left}px`}
+					style:top={`${overlayBox.top}px`}
+					style:width={`${overlayBox.width}px`}
+					style:height={`${overlayBox.height}px`}
+					aria-hidden="true"
+				></div>
+			{/if}
 		</div>
 		{#if bands.length > 0}
 			<div class="zone-legend" aria-label="Quality zones">
@@ -333,12 +460,28 @@
 		position: relative;
 		flex: 1;
 		min-height: 0;
+		cursor: crosshair;
+		touch-action: none;
+	}
+
+	.chart-canvas.selecting {
+		cursor: col-resize;
+		user-select: none;
 	}
 
 	.chart-canvas canvas {
 		display: block;
 		width: 100%;
 		height: 100%;
+	}
+
+	.range-overlay {
+		position: absolute;
+		pointer-events: none;
+		border: 1px solid rgba(36, 214, 167, 0.7);
+		border-radius: 2px;
+		background: rgba(36, 214, 167, 0.16);
+		box-shadow: inset 0 0 0 1px rgba(36, 214, 167, 0.12);
 	}
 
 	.zone-legend {

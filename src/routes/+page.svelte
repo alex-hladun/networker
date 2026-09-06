@@ -3,11 +3,21 @@
 	import { env } from '$env/dynamic/public';
 	import { onMount } from 'svelte';
 	import MetricChart from '$lib/components/MetricChart.svelte';
+	import ScenarioPanel from '$lib/components/ScenarioPanel.svelte';
 	import { filterChartSeries, listAccessPoints } from '$lib/chart-filters';
 	import { ALL_TOOLTIP_METRICS, TOOLTIP_METRICS, type TooltipMetric } from '$lib/chart-tooltip';
 	import { DemoRuntime } from '$lib/demo/runtime';
 	import { QUALITY_ZONES, ZONE_LABELS, qualityLabel, type QualityZone } from '$lib/metric-zones';
-	import type { Beacon, CollectorStatus, DiscoveredClient, MetricsResponse } from '$lib/types';
+	import { readStoredScenarios, writeStoredScenarios } from '$lib/scenario-storage';
+	import { buildScenario, defaultScenarioName, scenarioHasSamples } from '$lib/scenarios';
+	import type {
+		Beacon,
+		CollectorStatus,
+		DiscoveredClient,
+		MetricsResponse,
+		Scenario,
+		TimeRange
+	} from '$lib/types';
 
 	type ClientOption = DiscoveredClient & { selected: boolean };
 	type MetricKey =
@@ -56,6 +66,12 @@
 	let busyMac = $state<string | null>(null);
 	let errorMessage = $state<string | null>(null);
 	let chartExpanded = $state(false);
+	let scenarios = $state<Scenario[]>([]);
+	let selectedRange = $state<TimeRange | null>(null);
+	let draftName = $state('');
+	let activeScenarioId = $state<string | null>(null);
+	let savingScenario = $state(false);
+	let scenariosHydrated = false;
 
 	const filteredClients = $derived(
 		clients.filter((client) => {
@@ -82,6 +98,16 @@
 		selectedAp || !allBandsSelected
 			? 'No samples match the selected AP or signal band.'
 			: 'Leave the collector running or choose a wider time range.'
+	);
+	const draftScenario = $derived(
+		selectedRange && history
+			? buildScenario({
+					series: history.series,
+					from: selectedRange.from,
+					to: selectedRange.to,
+					name: draftName || defaultScenarioName(selectedRange.from, selectedRange.to)
+				})
+			: null
 	);
 
 	async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -118,6 +144,7 @@
 				clients = newClients;
 			}
 			await loadHistory();
+			await loadScenarios();
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : String(error);
 		} finally {
@@ -182,6 +209,105 @@
 			errorMessage = error instanceof Error ? error.message : String(error);
 		} finally {
 			busyMac = null;
+		}
+	}
+
+	async function loadScenarios(): Promise<void> {
+		if (demo) {
+			if (!scenariosHydrated) {
+				for (const scenario of readStoredScenarios()) demo.saveScenario(scenario);
+				scenariosHydrated = true;
+			}
+			scenarios = demo.listScenarios();
+			return;
+		}
+		scenarios = await fetchJson<Scenario[]>('/api/scenarios');
+	}
+
+	function persistDemoScenarios(): void {
+		if (demo) writeStoredScenarios(demo.listScenarios());
+	}
+
+	function handleChartRange(range: TimeRange): void {
+		selectedRange = range;
+		activeScenarioId = null;
+		draftName = defaultScenarioName(range.from, range.to);
+	}
+
+	function clearSelectedRange(): void {
+		selectedRange = null;
+		activeScenarioId = null;
+		draftName = '';
+	}
+
+	function selectScenario(scenario: Scenario): void {
+		activeScenarioId = scenario.id;
+		selectedRange = { from: scenario.from, to: scenario.to };
+		draftName = scenario.name;
+	}
+
+	async function saveSelectedScenario(): Promise<void> {
+		if (!selectedRange) return;
+		const name = draftName.trim() || defaultScenarioName(selectedRange.from, selectedRange.to);
+		savingScenario = true;
+		try {
+			errorMessage = null;
+			const precise = demo
+				? demo.getMetrics(selectedRange.from, selectedRange.to)
+				: await fetchJson<MetricsResponse>(
+						`/api/metrics?from=${selectedRange.from}&to=${selectedRange.to}`
+					);
+			const scenario = buildScenario({
+				series: precise.series,
+				from: selectedRange.from,
+				to: selectedRange.to,
+				name
+			});
+			if (!scenarioHasSamples(scenario)) {
+				errorMessage = 'No online samples in that range.';
+				return;
+			}
+			if (demo) {
+				demo.saveScenario(scenario);
+				persistDemoScenarios();
+				scenarios = demo.listScenarios();
+			} else {
+				const saved = await fetchJson<Scenario>('/api/scenarios', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify(scenario)
+				});
+				scenarios = [saved, ...scenarios.filter((item) => item.id !== saved.id)];
+			}
+			activeScenarioId = demo ? scenario.id : (scenarios[0]?.id ?? scenario.id);
+			draftName = scenario.name;
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : String(error);
+		} finally {
+			savingScenario = false;
+		}
+	}
+
+	async function deleteScenario(id: string): Promise<void> {
+		try {
+			errorMessage = null;
+			if (demo) {
+				demo.deleteScenario(id);
+				persistDemoScenarios();
+				scenarios = demo.listScenarios();
+			} else {
+				await fetchJson('/api/scenarios', {
+					method: 'DELETE',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ id })
+				});
+				scenarios = scenarios.filter((item) => item.id !== id);
+			}
+			if (activeScenarioId === id) {
+				clearSelectedRange();
+			}
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : String(error);
 		}
 	}
 
@@ -638,12 +764,27 @@
 							emptyDetail={chartEmptyDetail}
 							tooltipMetrics={selectedTooltipMetrics}
 							fill={chartExpanded}
+							{selectedRange}
+							onrangeselect={handleChartRange}
 						/>
 						<div class="chart-foot">
 							<span>Bucket: {history?.bucketSeconds ?? status?.pollIntervalSeconds ?? 30}s</span>
-							<span>Offline periods appear as gaps</span>
+							<span>Drag a span to save a scenario · Offline periods appear as gaps</span>
 						</div>
 					</div>
+
+					<ScenarioPanel
+						{draftName}
+						{draftScenario}
+						{scenarios}
+						activeId={activeScenarioId}
+						saving={savingScenario}
+						ondraftnamechange={(name) => (draftName = name)}
+						onsave={() => void saveSelectedScenario()}
+						onclear={clearSelectedRange}
+						onselect={selectScenario}
+						ondelete={(id) => void deleteScenario(id)}
+					/>
 				</section>
 			</div>
 
@@ -1419,6 +1560,14 @@
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
+	}
+
+	.chart-section :global(.scenario-section) {
+		margin-top: 2rem;
+	}
+
+	.chart-section.expanded :global(.scenario-section) {
+		flex-shrink: 0;
 	}
 
 	.range-picker,
