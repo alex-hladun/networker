@@ -68,6 +68,43 @@ export type MetricsResponse = {
 	series: BeaconSeries[];
 };
 
+export const AVERAGE_METRICS = [
+	'signalDbm',
+	'noiseDbm',
+	'snrDb',
+	'satisfaction',
+	'txRateKbps',
+	'rxRateKbps',
+	'retryPercent'
+] as const;
+
+export type AverageMetric = (typeof AVERAGE_METRICS)[number];
+
+export type BeaconAverages = Record<AverageMetric, number | null> & {
+	sampleCount: number;
+	onlineCount: number;
+};
+
+export type ScenarioBeacon = {
+	mac: string;
+	name: string;
+	averages: BeaconAverages;
+};
+
+export type Scenario = {
+	id: string;
+	name: string;
+	from: number;
+	to: number;
+	createdAt: number;
+	beacons: ScenarioBeacon[];
+};
+
+export type TimeRange = {
+	from: number;
+	to: number;
+};
+
 export type PublicConnection = {
 	unifiUrl: string;
 	username: string;

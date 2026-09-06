@@ -9,8 +9,10 @@ dashboard.
 The collector is read-only: it does not change access points, channels, radios, or WLAN settings. A
 Reconnect control on each beacon card can ask UniFi to reconnect that wireless client. Hovering the
 history chart lists every selected device at that time; use the Tooltip chips to choose which
-fields appear (signal, SNR, noise, satisfaction, rates, retries, AP, and channel). The history
-panel has a full-screen control that expands it to fill the app below the header.
+fields appear (signal, SNR, noise, satisfaction, rates, retries, AP, and channel). Drag across the
+chart to mark a time window and save it as a scenario — the dashboard averages each metric for each
+beacon in that span so you can compare later. The history panel has a full-screen control that
+expands it to fill the app below the header.
 
 ## What it records
 
@@ -130,6 +132,17 @@ which is useful for Docker and CI:
 
 Secrets are never saved to SQLite or returned to the browser. The API key and password are omitted
 from `GET /api/connection`.
+
+## Saved scenarios
+
+Drag left-to-right or right-to-left on the history chart to select a time range. Name the window
+and save it. The saved snapshot stores the average of each numeric metric (signal, SNR, noise,
+satisfaction, TX/RX rates, and retries) for every selected beacon, using only online samples in
+that range.
+
+Scenarios stay in SQLite on a self-hosted or Electron install (`GET` / `POST` / `DELETE`
+`/api/scenarios`). The static demo keeps them in browser storage so they survive a refresh. Use
+saved scenarios to compare windows such as before and after moving an access point.
 
 ## Operational notes
 

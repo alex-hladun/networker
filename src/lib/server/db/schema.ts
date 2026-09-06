@@ -35,6 +35,15 @@ export const metricSamples = sqliteTable(
 	(table) => [index('metric_samples_beacon_time_idx').on(table.beaconMac, table.sampledAt)]
 );
 
+export const scenarios = sqliteTable('scenarios', {
+	id: text('id').primaryKey(),
+	name: text('name').notNull(),
+	rangeFrom: integer('range_from').notNull(),
+	rangeTo: integer('range_to').notNull(),
+	createdAt: integer('created_at').notNull(),
+	beaconsJson: text('beacons_json').notNull()
+});
+
 export const collectorStatus = sqliteTable('collector_status', {
 	id: integer('id').primaryKey(),
 	mode: text('mode', { enum: ['unifi', 'fixture'] }).notNull(),

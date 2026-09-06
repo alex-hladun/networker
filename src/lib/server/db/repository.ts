@@ -4,12 +4,14 @@ import type {
 	CollectorStatus,
 	MetricSample,
 	MetricsResponse,
+	Scenario,
 	SignalQuality
 } from '$lib/types';
+import { parseScenario } from '$lib/scenarios';
 import { qualityLabel as formatQuality } from '$lib/metric-zones';
 import { signalQuality } from '../unifi/normalize';
 import type { AppDatabase } from './index';
-import { beacons, collectorStatus, metricSamples } from './schema';
+import { beacons, collectorStatus, metricSamples, scenarios } from './schema';
 
 type SampleInsert = MetricSample & { beaconMac: string };
 
@@ -233,6 +235,55 @@ export class Repository {
 			.from(metricSamples)
 			.get();
 		return Number(result?.count ?? 0);
+	}
+
+	listScenarios(): Scenario[] {
+		return this.database.orm
+			.select()
+			.from(scenarios)
+			.orderBy(desc(scenarios.createdAt))
+			.all()
+			.map((row) =>
+				parseScenario({
+					id: row.id,
+					name: row.name,
+					from: row.rangeFrom,
+					to: row.rangeTo,
+					createdAt: row.createdAt,
+					beacons: JSON.parse(row.beaconsJson) as unknown
+				})
+			)
+			.filter((scenario): scenario is Scenario => scenario !== null);
+	}
+
+	saveScenario(scenario: Scenario): Scenario {
+		this.database.orm
+			.insert(scenarios)
+			.values({
+				id: scenario.id,
+				name: scenario.name,
+				rangeFrom: scenario.from,
+				rangeTo: scenario.to,
+				createdAt: scenario.createdAt,
+				beaconsJson: JSON.stringify(scenario.beacons)
+			})
+			.onConflictDoUpdate({
+				target: scenarios.id,
+				set: {
+					name: scenario.name,
+					rangeFrom: scenario.from,
+					rangeTo: scenario.to,
+					createdAt: scenario.createdAt,
+					beaconsJson: JSON.stringify(scenario.beacons)
+				}
+			})
+			.run();
+		return scenario;
+	}
+
+	deleteScenario(id: string): boolean {
+		const result = this.database.orm.delete(scenarios).where(eq(scenarios.id, id)).run();
+		return result.changes > 0;
 	}
 }
 
