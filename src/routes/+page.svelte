@@ -2,7 +2,13 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import MetricChart from '$lib/components/MetricChart.svelte';
-	import { qualityLabel } from '$lib/metric-zones';
+	import { filterChartSeries, listAccessPoints } from '$lib/chart-filters';
+	import {
+		QUALITY_ZONES,
+		ZONE_LABELS,
+		qualityLabel,
+		type QualityZone
+	} from '$lib/metric-zones';
 	import type { Beacon, CollectorStatus, DiscoveredClient, MetricsResponse } from '$lib/types';
 
 	type ClientOption = DiscoveredClient & { selected: boolean };
@@ -43,6 +49,8 @@
 	let search = $state('');
 	let metric = $state<MetricKey>('signalDbm');
 	let range = $state(5 * 60 * 1000);
+	let selectedAp = $state<string | null>(null);
+	let selectedBands = $state<QualityZone[]>([...QUALITY_ZONES]);
 	let loading = $state(true);
 	let busyMac = $state<string | null>(null);
 	let errorMessage = $state<string | null>(null);
@@ -60,6 +68,16 @@
 		)
 	);
 	const pollIntervalMs = $derived(Math.max(500, (status?.pollIntervalSeconds ?? 30) * 1000));
+	const availableAps = $derived(listAccessPoints(history?.series ?? []));
+	const allBandsSelected = $derived(selectedBands.length === QUALITY_ZONES.length);
+	const chartSeries = $derived(
+		filterChartSeries(history?.series ?? [], { apId: selectedAp, bands: selectedBands })
+	);
+	const chartEmptyDetail = $derived(
+		selectedAp || !allBandsSelected
+			? 'No samples match the selected AP or signal band.'
+			: 'Leave the collector running or choose a wider time range.'
+	);
 
 	async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 		const response = await fetch(url, init);
@@ -167,6 +185,27 @@
 
 	function formatRate(value: number | null | undefined): string {
 		return value === null || value === undefined ? '—' : `${(value / 1000).toFixed(0)} Mbps`;
+	}
+
+	function selectAp(id: string | null): void {
+		selectedAp = id;
+	}
+
+	function selectAllBands(): void {
+		selectedBands = [...QUALITY_ZONES];
+	}
+
+	function toggleBand(zone: QualityZone): void {
+		if (allBandsSelected) {
+			selectedBands = [zone];
+			return;
+		}
+		if (selectedBands.includes(zone)) {
+			const next = selectedBands.filter((item) => item !== zone);
+			selectedBands = next.length === 0 ? [...QUALITY_ZONES] : next;
+			return;
+		}
+		selectedBands = [...selectedBands, zone];
 	}
 
 	onMount(() => {
@@ -445,14 +484,48 @@
 						{/each}
 					</div>
 
+					<div class="chart-filters">
+						<div class="filter-group" aria-label="Filter by access point">
+							<span>AP</span>
+							<button
+								class:active={selectedAp === null}
+								aria-pressed={selectedAp === null}
+								onclick={() => selectAp(null)}>All</button
+							>
+							{#each availableAps as ap (ap.id)}
+								<button
+									class:active={selectedAp === ap.id}
+									aria-pressed={selectedAp === ap.id}
+									onclick={() => selectAp(ap.id)}>{ap.label}</button
+								>
+							{/each}
+						</div>
+						<div class="filter-group" aria-label="Filter by signal band">
+							<span>Signal</span>
+							<button
+								class:active={allBandsSelected}
+								aria-pressed={allBandsSelected}
+								onclick={selectAllBands}>All</button
+							>
+							{#each QUALITY_ZONES as zone (zone)}
+								<button
+									class:active={!allBandsSelected && selectedBands.includes(zone)}
+									aria-pressed={!allBandsSelected && selectedBands.includes(zone)}
+									onclick={() => toggleBand(zone)}>{ZONE_LABELS[zone]}</button
+								>
+							{/each}
+						</div>
+					</div>
+
 					<div class="chart-card">
 						<MetricChart
-							series={history?.series ?? []}
+							series={chartSeries}
 							{metric}
 							label={metricConfig.label}
 							unit={metricConfig.unit}
 							from={history?.from}
 							to={history?.to}
+							emptyDetail={chartEmptyDetail}
 						/>
 						<div class="chart-foot">
 							<span>Bucket: {history?.bucketSeconds ?? status?.pollIntervalSeconds ?? 30}s</span>
@@ -1177,7 +1250,8 @@
 	}
 
 	.range-picker button,
-	.metric-picker button {
+	.metric-picker button,
+	.filter-group button {
 		border: 0;
 		color: var(--muted);
 		background: transparent;
@@ -1198,10 +1272,11 @@
 
 	.metric-picker {
 		flex-wrap: wrap;
-		margin-bottom: 0.8rem;
+		margin-bottom: 0.65rem;
 	}
 
-	.metric-picker button {
+	.metric-picker button,
+	.filter-group button {
 		border: 1px solid transparent;
 		border-radius: 999px;
 		padding: 0.45rem 0.7rem;
@@ -1209,10 +1284,36 @@
 	}
 
 	.metric-picker button:hover,
-	.metric-picker button.active {
+	.metric-picker button.active,
+	.filter-group button:hover,
+	.filter-group button.active {
 		color: var(--text);
 		border-color: #2b3d49;
 		background: #111f29;
+	}
+
+	.chart-filters {
+		display: flex;
+		flex-direction: column;
+		gap: 0.45rem;
+		margin-bottom: 0.8rem;
+	}
+
+	.filter-group {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	.filter-group > span {
+		color: #687988;
+		font-size: 0.58rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		margin-right: 0.35rem;
+		min-width: 3.2rem;
 	}
 
 	.chart-card {
