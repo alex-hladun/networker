@@ -27,3 +27,6 @@ playwright-report
 
 # Local database
 /data
+
+# Editor / debug session artifacts
+/.cursor

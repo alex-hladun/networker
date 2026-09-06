@@ -22,32 +22,55 @@ export class ClassicClient {
 	}
 
 	private async login(): Promise<void> {
-		const body = JSON.stringify({
-			username: this.config.username,
-			password: this.config.password,
-			remember: true
-		});
+		const payloads = [
+			{ username: this.config.username, password: this.config.password },
+			{
+				username: this.config.username,
+				password: this.config.password,
+				rememberMe: true
+			}
+		];
 
-		let response: Response;
+		let lastError: unknown;
+		for (const payload of payloads) {
+			try {
+				const response = await this.postLogin(JSON.stringify(payload));
+				this.captureSession(response);
+				if (!this.cookie) {
+					throw new Error('UniFi login succeeded but did not return a session cookie');
+				}
+				return;
+			} catch (error) {
+				lastError = error;
+				if (!(error instanceof UniFiHttpError) || error.status !== 403) throw error;
+			}
+		}
+
+		throw lastError;
+	}
+
+	private async postLogin(body: string): Promise<Response> {
 		try {
-			response = await this.http.request('/api/auth/login', {
+			return await this.http.request('/api/auth/login', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body
 			});
 		} catch (error) {
 			if (!(error instanceof UniFiHttpError) || error.status !== 404) throw error;
-			response = await this.http.request('/api/login', {
+			return this.http.request('/api/login', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body
 			});
 		}
+	}
 
-		this.captureSession(response);
-		if (!this.cookie) {
-			throw new Error('UniFi login succeeded but did not return a session cookie');
-		}
+	private async getWithApiKey(path: string): Promise<unknown> {
+		const response = await this.http.request(path, {
+			headers: { 'x-api-key': this.config.apiKey }
+		});
+		return response.json();
 	}
 
 	private async authenticatedGet(path: string, retry = true): Promise<unknown> {
@@ -101,6 +124,15 @@ export class ClassicClient {
 	}
 
 	async getStations(): Promise<RawStation[]> {
+		const configuredSite = this.config.site;
+		const staPath = `/proxy/network/api/s/${encodeURIComponent(configuredSite)}/stat/sta`;
+
+		try {
+			return extractCollection(await this.getWithApiKey(staPath));
+		} catch {
+			// Official keys do not always authorize classic telemetry; fall back to a local session.
+		}
+
 		const site = await this.resolveSiteName();
 		const payload = await this.authenticatedGet(
 			`/proxy/network/api/s/${encodeURIComponent(site)}/stat/sta`

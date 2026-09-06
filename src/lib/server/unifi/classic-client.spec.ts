@@ -10,6 +10,11 @@ describe('ClassicClient session handling', () => {
 		let stationCount = 0;
 		const server = createServer((request, response) => {
 			response.setHeader('content-type', 'application/json');
+			if (request.headers['x-api-key'] && request.url?.includes('/stat/sta')) {
+				response.statusCode = 403;
+				response.end(JSON.stringify({ meta: { msg: 'api.err.NoPermission' } }));
+				return;
+			}
 			if (request.url === '/api/auth/login') {
 				loginCount += 1;
 				response.setHeader('set-cookie', `TOKEN=session-${loginCount}; Path=/; HttpOnly`);
@@ -53,6 +58,47 @@ describe('ClassicClient session handling', () => {
 
 		expect(stations).toHaveLength(1);
 		expect(loginCount).toBe(2);
+		await new Promise<void>((resolve, reject) =>
+			server.close((error) => (error ? reject(error) : resolve()))
+		);
+	});
+
+	it('reads station telemetry with an API key and skips login', async () => {
+		let loginCount = 0;
+		const server = createServer((request, response) => {
+			response.setHeader('content-type', 'application/json');
+			if (request.url === '/api/auth/login') {
+				loginCount += 1;
+				response.statusCode = 403;
+				response.end(JSON.stringify({ message: 'Invalid username or password' }));
+				return;
+			}
+			if (request.headers['x-api-key'] === 'key' && request.url?.includes('/stat/sta')) {
+				response.end(JSON.stringify({ data: [{ mac: 'aa:bb:cc:dd:ee:ff', signal: -61 }] }));
+				return;
+			}
+			response.statusCode = 404;
+			response.end('{}');
+		});
+
+		await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+		const port = (server.address() as AddressInfo).port;
+		const config: AppConfig = {
+			unifiUrl: `http://127.0.0.1:${port}`,
+			apiKey: 'key',
+			username: 'reader',
+			password: 'wrong',
+			site: 'default',
+			verifyTls: true,
+			fixtureMode: false,
+			pollIntervalSeconds: 30,
+			retentionDays: 30,
+			databasePath: ':memory:'
+		};
+
+		const stations = await new ClassicClient(config).getStations();
+		expect(stations).toHaveLength(1);
+		expect(loginCount).toBe(0);
 		await new Promise<void>((resolve, reject) =>
 			server.close((error) => (error ? reject(error) : resolve()))
 		);

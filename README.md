@@ -53,6 +53,10 @@ docker compose up --build -d
 
 Open <http://localhost:3000>. The named `networker_data` volume retains history across upgrades.
 
+If `UNIFI_URL` uses `127.0.0.1` or `localhost` (a host tunnel or forwarded console port), the
+container rewrites that host to `host.docker.internal`. A LAN console IP such as
+`https://192.168.1.1` is used as-is.
+
 To try the UI without a console:
 
 ```sh

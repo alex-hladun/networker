@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
 export type AppConfig = {
@@ -29,11 +30,32 @@ function asBoundedInteger(
 	return Math.min(maximum, Math.max(minimum, parsed));
 }
 
+export function runningInDocker(): boolean {
+	return fs.existsSync('/.dockerenv');
+}
+
+export function resolveUnifiUrl(url: string, inDocker = runningInDocker()): string {
+	const trimmed = url.replace(/\/+$/, '');
+	if (!trimmed || !inDocker) return trimmed;
+
+	try {
+		const parsed = new URL(trimmed);
+		if (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost') {
+			parsed.hostname = 'host.docker.internal';
+			return parsed.toString().replace(/\/+$/, '');
+		}
+	} catch {
+		return trimmed;
+	}
+
+	return trimmed;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 	const dataDirectory = env.DATA_DIR || path.resolve('data');
 
 	return {
-		unifiUrl: (env.UNIFI_URL || '').replace(/\/+$/, ''),
+		unifiUrl: resolveUnifiUrl(env.UNIFI_URL || ''),
 		apiKey: env.UNIFI_API_KEY || '',
 		username: env.UNIFI_USERNAME || '',
 		password: env.UNIFI_PASSWORD || '',

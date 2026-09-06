@@ -11,6 +11,11 @@ export class UniFiHttpError extends Error {
 	}
 }
 
+function causeMessage(error: unknown): string {
+	const err = error as Error & { cause?: Error };
+	return err.cause?.message || err.message || String(error);
+}
+
 export class UniFiHttpClient {
 	private readonly dispatcher: Dispatcher;
 
@@ -24,26 +29,35 @@ export class UniFiHttpClient {
 	}
 
 	async request(path: string, init: RequestInit = {}): Promise<Response> {
-		const response = await fetch(`${this.baseUrl}${path}`, {
-			...init,
-			dispatcher: this.dispatcher,
-			headers: {
-				accept: 'application/json',
-				...init.headers
-			},
-			signal: init.signal ?? AbortSignal.timeout(15_000)
-		});
+		const target = new URL(path, `${this.baseUrl}/`);
+		try {
+			const response = await fetch(`${this.baseUrl}${path}`, {
+				...init,
+				dispatcher: this.dispatcher,
+				headers: {
+					accept: 'application/json',
+					...init.headers
+				},
+				signal: init.signal ?? AbortSignal.timeout(15_000)
+			});
 
-		if (!response.ok) {
-			const detail = (await response.text()).replace(/\s+/g, ' ').slice(0, 240);
-			throw new UniFiHttpError(
-				`UniFi returned ${response.status}${detail ? `: ${detail}` : ''}`,
-				response.status,
-				path
+			if (!response.ok) {
+				const detail = (await response.text()).replace(/\s+/g, ' ').slice(0, 240);
+				throw new UniFiHttpError(
+					`UniFi returned ${response.status}${detail ? `: ${detail}` : ''}`,
+					response.status,
+					path
+				);
+			}
+
+			return response as unknown as Response;
+		} catch (error) {
+			if (error instanceof UniFiHttpError) throw error;
+			const port = target.port || (target.protocol === 'https:' ? '443' : '80');
+			throw new Error(
+				`UniFi request to ${target.hostname}:${port}${path} failed: ${causeMessage(error)}`
 			);
 		}
-
-		return response as unknown as Response;
 	}
 }
 
