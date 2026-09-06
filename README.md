@@ -80,7 +80,6 @@ The local SQLite database is created under `data/`. Useful checks:
 pnpm check
 pnpm lint
 pnpm test:unit
-pnpm test:e2e
 pnpm build
 ```
 

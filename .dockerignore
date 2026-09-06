@@ -4,5 +4,3 @@ build
 data
 .env
 .git
-test-results
-playwright-report
