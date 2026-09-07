@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ALL_TOOLTIP_METRICS, tooltipMetricLines } from './chart-tooltip';
+import { ALL_TOOLTIP_METRICS, tooltipMetricLines, tooltipMetricRows } from './chart-tooltip';
 import type { MetricSample } from './types';
 
 const sample: MetricSample = {
@@ -22,12 +22,35 @@ const sample: MetricSample = {
 };
 
 describe('chart tooltip', () => {
-	it('defaults to signal and AP', () => {
-		expect(tooltipMetricLines(sample)).toEqual(['Signal  -54 dBm', 'AP  Office AP']);
+	it('defaults to signal class and AP', () => {
+		expect(tooltipMetricRows(sample)).toEqual([
+			{ label: 'Signal', value: 'Ideal' },
+			{ label: 'AP', value: 'Office AP' }
+		]);
 	});
 
-	it('lists every live metric when all fields are selected', () => {
-		expect(tooltipMetricLines(sample, ALL_TOOLTIP_METRICS)).toEqual([
+	it('shows raw numbers when requested', () => {
+		expect(tooltipMetricLines(sample, undefined, true)).toEqual([
+			'Signal  -54 dBm',
+			'AP  Office AP'
+		]);
+	});
+
+	it('lists every live metric as quality classes when raw values are off', () => {
+		expect(tooltipMetricRows(sample, ALL_TOOLTIP_METRICS)).toEqual([
+			{ label: 'Signal', value: 'Ideal' },
+			{ label: 'SNR', value: 'Excellent' },
+			{ label: 'Noise', value: 'Excellent' },
+			{ label: 'Satisfaction', value: 'Ideal' },
+			{ label: 'TX / RX', value: '300 Mbps / 400 Mbps' },
+			{ label: 'Retries', value: 'Excellent' },
+			{ label: 'AP', value: 'Office AP' },
+			{ label: 'Channel', value: '36 · AX' }
+		]);
+	});
+
+	it('lists every live metric as numbers when raw values are on', () => {
+		expect(tooltipMetricLines(sample, ALL_TOOLTIP_METRICS, true)).toEqual([
 			'Signal  -54 dBm',
 			'SNR  42 dB',
 			'Noise  -96 dBm',
@@ -40,12 +63,12 @@ describe('chart tooltip', () => {
 	});
 
 	it('marks offline samples instead of repeating empty metrics', () => {
-		expect(tooltipMetricLines({ ...sample, online: false })).toEqual(['Offline']);
+		expect(tooltipMetricRows({ ...sample, online: false })).toEqual([{ label: 'Offline' }]);
 	});
 
 	it('keeps only the selected tooltip fields, in display order', () => {
 		expect(tooltipMetricLines(sample, ['channel', 'signalDbm', 'ap'])).toEqual([
-			'Signal  -54 dBm',
+			'Signal  Ideal',
 			'AP  Office AP',
 			'Channel  36 · AX'
 		]);

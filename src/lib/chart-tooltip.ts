@@ -1,14 +1,13 @@
+import { classifyMetric, qualityLabel, type ZonedMetric } from '$lib/metric-zones';
 import type { MetricSample } from '$lib/types';
 
 export type TooltipMetric =
-	| 'signalDbm'
-	| 'snrDb'
-	| 'noiseDbm'
-	| 'satisfaction'
-	| 'txRx'
-	| 'retryPercent'
-	| 'ap'
-	| 'channel';
+	'signalDbm' | 'snrDb' | 'noiseDbm' | 'satisfaction' | 'txRx' | 'retryPercent' | 'ap' | 'channel';
+
+export type TooltipRow = {
+	label: string;
+	value?: string;
+};
 
 export const TOOLTIP_METRICS: { key: TooltipMetric; label: string }[] = [
 	{ key: 'signalDbm', label: 'Signal' },
@@ -33,23 +32,75 @@ function formatRate(kbps: number | null): string {
 	return kbps === null ? '—' : `${(kbps / 1000).toFixed(0)} Mbps`;
 }
 
-const LINES: Record<TooltipMetric, (sample: MetricSample) => string> = {
-	signalDbm: (sample) => `Signal  ${display(sample.signalDbm, 0, ' dBm')}`,
-	snrDb: (sample) => `SNR  ${display(sample.snrDb, 0, ' dB')}`,
-	noiseDbm: (sample) => `Noise  ${display(sample.noiseDbm, 0, ' dBm')}`,
-	satisfaction: (sample) => `Satisfaction  ${display(sample.satisfaction, 0, '%')}`,
-	txRx: (sample) => `TX / RX  ${formatRate(sample.txRateKbps)} / ${formatRate(sample.rxRateKbps)}`,
-	retryPercent: (sample) => `Retries  ${display(sample.retryPercent, 1, '%')}`,
-	ap: (sample) => `AP  ${sample.apName ?? sample.apMac ?? '—'}`,
-	channel: (sample) =>
-		`Channel  ${sample.channel ?? '—'} · ${sample.radioProtocol?.toUpperCase() ?? '—'}`
-};
+function zonedDisplay(
+	metric: ZonedMetric,
+	value: number | null,
+	rawValues: boolean,
+	digits: number,
+	suffix: string
+): string {
+	if (value === null) return '—';
+	if (!rawValues) return qualityLabel(classifyMetric(metric, value));
+	return display(value, digits, suffix);
+}
+
+function row(key: TooltipMetric, sample: MetricSample, rawValues: boolean): TooltipRow {
+	switch (key) {
+		case 'signalDbm':
+			return {
+				label: 'Signal',
+				value: zonedDisplay('signalDbm', sample.signalDbm, rawValues, 0, ' dBm')
+			};
+		case 'snrDb':
+			return { label: 'SNR', value: zonedDisplay('snrDb', sample.snrDb, rawValues, 0, ' dB') };
+		case 'noiseDbm':
+			return {
+				label: 'Noise',
+				value: zonedDisplay('noiseDbm', sample.noiseDbm, rawValues, 0, ' dBm')
+			};
+		case 'satisfaction':
+			return {
+				label: 'Satisfaction',
+				value: zonedDisplay('satisfaction', sample.satisfaction, rawValues, 0, '%')
+			};
+		case 'txRx':
+			return {
+				label: 'TX / RX',
+				value: `${formatRate(sample.txRateKbps)} / ${formatRate(sample.rxRateKbps)}`
+			};
+		case 'retryPercent':
+			return {
+				label: 'Retries',
+				value: zonedDisplay('retryPercent', sample.retryPercent, rawValues, 1, '%')
+			};
+		case 'ap':
+			return { label: 'AP', value: sample.apName ?? sample.apMac ?? '—' };
+		case 'channel':
+			return {
+				label: 'Channel',
+				value: `${sample.channel ?? '—'} · ${sample.radioProtocol?.toUpperCase() ?? '—'}`
+			};
+	}
+}
+
+export function tooltipMetricRows(
+	sample: MetricSample,
+	selected: readonly TooltipMetric[] = DEFAULT_TOOLTIP_METRICS,
+	rawValues = false
+): TooltipRow[] {
+	if (!sample.online) return [{ label: 'Offline' }];
+	const keys = selected.length ? selected : DEFAULT_TOOLTIP_METRICS;
+	return ALL_TOOLTIP_METRICS.filter((key) => keys.includes(key)).map((key) =>
+		row(key, sample, rawValues)
+	);
+}
 
 export function tooltipMetricLines(
 	sample: MetricSample,
-	selected: readonly TooltipMetric[] = DEFAULT_TOOLTIP_METRICS
+	selected: readonly TooltipMetric[] = DEFAULT_TOOLTIP_METRICS,
+	rawValues = false
 ): string[] {
-	if (!sample.online) return ['Offline'];
-	const keys = selected.length ? selected : DEFAULT_TOOLTIP_METRICS;
-	return ALL_TOOLTIP_METRICS.filter((key) => keys.includes(key)).map((key) => LINES[key](sample));
+	return tooltipMetricRows(sample, selected, rawValues).map((item) =>
+		item.value ? `${item.label}  ${item.value}` : item.label
+	);
 }

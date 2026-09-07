@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import type { Chart as ChartInstance, Plugin } from 'chart.js';
+	import type { Chart as ChartInstance, ChartType, Plugin, TooltipModel } from 'chart.js';
 	import {
 		QUALITY_ZONES,
 		ZONE_COLORS,
@@ -12,8 +12,9 @@
 	} from '$lib/metric-zones';
 	import {
 		DEFAULT_TOOLTIP_METRICS,
-		tooltipMetricLines,
-		type TooltipMetric
+		tooltipMetricRows,
+		type TooltipMetric,
+		type TooltipRow
 	} from '$lib/chart-tooltip';
 	import { finalizeChartSelection } from '$lib/scenarios';
 	import type { BeaconSeries, MetricSample, TimeRange } from '$lib/types';
@@ -58,12 +59,22 @@
 	let drawnMetric: ChartMetric | null = null;
 	let drawnFormat: 'date' | 'seconds' | 'time' | null = null;
 	let activeTooltipMetrics: readonly TooltipMetric[] = DEFAULT_TOOLTIP_METRICS;
+	let activeShowRawValues = false;
+	let activeTimeFormat: Intl.DateTimeFormat | null = null;
+	let tooltipsActive = true;
 	let dragging = $state(false);
 	let dragStart = 0;
 	let dragCurrent = 0;
+	let showRawValues = $state(false);
 	let overlayBox = $state<{ left: number; top: number; width: number; height: number } | null>(
 		null
 	);
+	let tooltipView = $state<{
+		left: number;
+		top: number;
+		title: string;
+		items: { color: string; name: string; rows: TooltipRow[] }[];
+	} | null>(null);
 
 	const colors = ['#24d6a7', '#73a8ff', '#f6b950', '#f07b91', '#a78bfa', '#2dd4bf'];
 	const bands = $derived(zoneBands(metric));
@@ -160,11 +171,42 @@
 		};
 	}
 
+	function renderTooltip(context: { tooltip: TooltipModel<ChartType> }): void {
+		const tooltip = context.tooltip;
+		if (
+			!tooltipsActive ||
+			dragging ||
+			!tooltip ||
+			tooltip.opacity === 0 ||
+			tooltip.dataPoints.length === 0
+		) {
+			tooltipView = null;
+			return;
+		}
+		const titleValue = tooltip.dataPoints[0]?.parsed?.x;
+		tooltipView = {
+			left: tooltip.caretX,
+			top: tooltip.caretY,
+			title:
+				typeof titleValue === 'number' && activeTimeFormat
+					? activeTimeFormat.format(titleValue)
+					: '',
+			items: tooltip.dataPoints.map((item) => ({
+				color: typeof item.dataset.borderColor === 'string' ? item.dataset.borderColor : '#aab7c5',
+				name: item.dataset.label ?? '',
+				rows: isChartPoint(item.raw)
+					? tooltipMetricRows(item.raw.sample, activeTooltipMetrics, activeShowRawValues)
+					: []
+			}))
+		};
+	}
+
 	function draw(): void {
 		if (!canvas || !ChartConstructor) return;
 		activeTooltipMetrics = tooltipMetrics;
 
 		const model = chartModel();
+		activeTimeFormat = model.format;
 		const xScale = chart?.options.scales?.x;
 		const yScale = chart?.options.scales?.y;
 		const canUpdate =
@@ -213,12 +255,8 @@
 						}
 					},
 					tooltip: {
-						backgroundColor: '#111a23',
-						borderColor: '#2d3b49',
-						borderWidth: 1,
-						padding: 10,
-						bodySpacing: 3,
-						boxPadding: 4,
+						enabled: false,
+						external: renderTooltip,
 						mode: 'nearest',
 						axis: 'x',
 						intersect: false,
@@ -233,17 +271,6 @@
 							const anchor = times[Math.floor(times.length / 2)];
 							const x = item.parsed?.x;
 							return typeof x === 'number' && Math.abs(x - anchor) < 2000;
-						},
-						callbacks: {
-							title: (items) => {
-								const x = items[0]?.parsed?.x;
-								return typeof x === 'number' ? model.format.format(x) : '';
-							},
-							label: (context) => context.dataset.label ?? '',
-							afterLabel: (context) => {
-								if (!isChartPoint(context.raw)) return [];
-								return tooltipMetricLines(context.raw.sample, activeTooltipMetrics);
-							}
 						}
 					}
 				},
@@ -293,8 +320,8 @@
 	}
 
 	function setTooltipEnabled(enabled: boolean): void {
-		const tooltip = chart?.options.plugins?.tooltip;
-		if (tooltip && typeof tooltip === 'object') tooltip.enabled = enabled;
+		tooltipsActive = enabled;
+		if (!enabled) tooltipView = null;
 	}
 
 	function syncOverlay(): void {
@@ -377,6 +404,10 @@
 	});
 
 	$effect(() => {
+		activeShowRawValues = showRawValues;
+	});
+
+	$effect(() => {
 		draw();
 	});
 
@@ -413,6 +444,10 @@
 		</div>
 	{:else}
 		<div class="chart-canvas" class:selecting={dragging}>
+			<label class="raw-toggle">
+				<input type="checkbox" bind:checked={showRawValues} />
+				Show raw values
+			</label>
 			<canvas
 				bind:this={canvas}
 				aria-label={`${label} history chart. Drag to select a time range.`}
@@ -430,6 +465,32 @@
 					style:height={`${overlayBox.height}px`}
 					aria-hidden="true"
 				></div>
+			{/if}
+			{#if tooltipView}
+				<div
+					class="chart-tooltip"
+					style:left={`${tooltipView.left}px`}
+					style:top={`${tooltipView.top}px`}
+				>
+					{#if tooltipView.title}
+						<div class="tooltip-title">{tooltipView.title}</div>
+					{/if}
+					{#each tooltipView.items as item (item.name)}
+						<div class="tooltip-series">
+							<div class="tooltip-name" style:color={item.color}>{item.name}</div>
+							{#each item.rows as row, index (`${item.name}-${index}`)}
+								{#if row.value}
+									<div class="tooltip-row">
+										<span>{row.label}</span>
+										<strong>{row.value}</strong>
+									</div>
+								{:else}
+									<div class="tooltip-offline">{row.label}</div>
+								{/if}
+							{/each}
+						</div>
+					{/each}
+				</div>
 			{/if}
 		</div>
 		{#if bands.length > 0}
@@ -466,6 +527,80 @@
 		min-height: 0;
 		cursor: crosshair;
 		touch-action: none;
+	}
+
+	.raw-toggle {
+		position: absolute;
+		top: 2px;
+		left: 2px;
+		z-index: 4;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		color: #aab7c5;
+		font-size: 0.68rem;
+		cursor: pointer;
+		user-select: none;
+	}
+
+	.raw-toggle input {
+		margin: 0;
+		accent-color: var(--accent);
+	}
+
+	.chart-tooltip {
+		position: absolute;
+		z-index: 5;
+		pointer-events: none;
+		transform: translate(-50%, calc(-100% - 12px));
+		min-width: 11.5rem;
+		max-width: min(20rem, calc(100% - 1rem));
+		padding: 0.55rem 0.7rem 0.5rem;
+		border: 1px solid #2d3b49;
+		border-radius: 8px;
+		background: #111a23;
+		color: #d5dee6;
+		box-shadow: 0 14px 32px rgba(0, 0, 0, 0.38);
+		font-size: 0.68rem;
+		line-height: 1.35;
+	}
+
+	.tooltip-title {
+		color: #8b9bab;
+		font-size: 0.6rem;
+		margin-bottom: 0.4rem;
+	}
+
+	.tooltip-series + .tooltip-series {
+		margin-top: 0.5rem;
+		padding-top: 0.45rem;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+
+	.tooltip-name {
+		font-weight: 650;
+		margin-bottom: 0.22rem;
+	}
+
+	.tooltip-row {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 1.1rem;
+	}
+
+	.tooltip-row span {
+		color: #8b9bab;
+	}
+
+	.tooltip-row strong {
+		font-weight: 700;
+		text-align: right;
+		margin-left: auto;
+	}
+
+	.tooltip-offline {
+		color: #f07b91;
 	}
 
 	.chart-canvas.selecting {
