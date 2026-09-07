@@ -4,10 +4,7 @@ export type QualityZone = Exclude<SignalQuality, 'unknown'>;
 
 export type ZonedMetric = 'signalDbm' | 'snrDb' | 'noiseDbm' | 'satisfaction' | 'retryPercent';
 
-export type ChartMetric =
-	| ZonedMetric
-	| 'txRateKbps'
-	| 'rxRateKbps';
+export type ChartMetric = ZonedMetric | 'txRateKbps' | 'rxRateKbps';
 
 type ZoneScale = {
 	higherIsBetter: boolean;
@@ -36,11 +33,11 @@ export const ZONE_COLORS: Record<QualityZone, string> = {
 };
 
 export const METRIC_ZONE_SCALES: Record<ZonedMetric, ZoneScale> = {
-	signalDbm: { higherIsBetter: true, excellent: -50, ideal: -60, ok: -70, bad: -75 },
-	snrDb: { higherIsBetter: true, excellent: 40, ideal: 30, ok: 25, bad: 20 },
-	satisfaction: { higherIsBetter: true, excellent: 95, ideal: 90, ok: 80, bad: 70 },
-	noiseDbm: { higherIsBetter: false, excellent: -95, ideal: -90, ok: -85, bad: -80 },
-	retryPercent: { higherIsBetter: false, excellent: 2, ideal: 5, ok: 10, bad: 15 }
+	signalDbm: { higherIsBetter: true, excellent: -55, ideal: -65, ok: -72, bad: -80 },
+	snrDb: { higherIsBetter: true, excellent: 35, ideal: 30, ok: 25, bad: 20 },
+	satisfaction: { higherIsBetter: true, excellent: 90, ideal: 80, ok: 70, bad: 60 },
+	noiseDbm: { higherIsBetter: false, excellent: -90, ideal: -85, ok: -80, bad: -75 },
+	retryPercent: { higherIsBetter: false, excellent: 5, ideal: 10, ok: 15, bad: 25 }
 };
 
 export type ZoneBand = {
@@ -57,14 +54,14 @@ export function isZonedMetric(metric: ChartMetric): metric is ZonedMetric {
 export function classifyMetric(metric: ZonedMetric, value: number): QualityZone {
 	const scale = METRIC_ZONE_SCALES[metric];
 	if (scale.higherIsBetter) {
-		if (value > scale.excellent) return 'excellent';
+		if (value >= scale.excellent) return 'excellent';
 		if (value >= scale.ideal) return 'ideal';
 		if (value >= scale.ok) return 'ok';
 		if (value >= scale.bad) return 'bad';
 		return 'terrible';
 	}
 
-	if (value < scale.excellent) return 'excellent';
+	if (value <= scale.excellent) return 'excellent';
 	if (value <= scale.ideal) return 'ideal';
 	if (value <= scale.ok) return 'ok';
 	if (value <= scale.bad) return 'bad';

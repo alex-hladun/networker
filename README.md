@@ -32,6 +32,24 @@ Pinning a beacon only adds the live health card. History for that MAC is already
 device was on the network. A client that leaves is marked offline once (beacons keep logging
 offline samples so dropouts stay visible).
 
+## Quality zones
+
+Charts, tooltips, and beacon cards color zoned metrics with five bands. Cutoffs follow common WLAN
+design targets: coverage around `-65 dBm`, usable data around `25 dB` SNR, and UniFi satisfaction of
+`90` as healthy. The named threshold is included in that band.
+
+| Metric           | Excellent | Ideal | OK    | Bad   | Terrible |
+| ---------------- | --------- | ----- | ----- | ----- | -------- |
+| Signal (dBm)     | ≥ −55     | ≥ −65 | ≥ −72 | ≥ −80 | < −80    |
+| SNR (dB)         | ≥ 35      | ≥ 30  | ≥ 25  | ≥ 20  | < 20     |
+| Noise (dBm)      | ≤ −90     | ≤ −85 | ≤ −80 | ≤ −75 | > −75    |
+| Satisfaction (%) | ≥ 90      | ≥ 80  | ≥ 70  | ≥ 60  | < 60     |
+| Retries (%)      | ≤ 5       | ≤ 10  | ≤ 15  | ≤ 25  | > 25     |
+
+TX and RX link rates are not zoned; those values depend on PHY, spatial streams, and channel width.
+Noise is a diagnostic (wider channels report a higher floor even when the spectrum is clean). SNR is
+the better companion for client experience. Beacon-card quality still follows signal strength.
+
 UniFi's official Integration API is used for version, site, and client discovery. Detailed wireless
 values come from the local `/proxy/network/api/s/{site}/stat/sta` endpoint used by the Network UI,
 because the official connected-client schema does not currently expose those values.

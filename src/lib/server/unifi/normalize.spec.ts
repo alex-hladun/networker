@@ -66,9 +66,10 @@ describe('UniFi station normalization', () => {
 describe('metric calculations', () => {
 	it('classifies practical Wi-Fi signal thresholds', () => {
 		expect(signalQuality(-49)).toBe('excellent');
-		expect(signalQuality(-55)).toBe('ideal');
-		expect(signalQuality(-60)).toBe('ideal');
-		expect(signalQuality(-71)).toBe('bad');
+		expect(signalQuality(-55)).toBe('excellent');
+		expect(signalQuality(-65)).toBe('ideal');
+		expect(signalQuality(-72)).toBe('ok');
+		expect(signalQuality(-80)).toBe('bad');
 		expect(signalQuality(-81)).toBe('terrible');
 		expect(signalQuality(null)).toBe('unknown');
 	});

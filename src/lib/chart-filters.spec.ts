@@ -69,13 +69,13 @@ describe('chart filters', () => {
 				series('Office', [
 					point({ sampledAt: 1, signalDbm: -49 }),
 					point({ sampledAt: 2, signalDbm: -58 }),
-					point({ sampledAt: 3, signalDbm: -65 })
+					point({ sampledAt: 3, signalDbm: -70 })
 				])
 			],
 			{ bands: ['excellent', 'ok'] }
 		);
 
-		expect(filtered[0].points.map((item) => item.signalDbm)).toEqual([-49, null, -65]);
+		expect(filtered[0].points.map((item) => item.signalDbm)).toEqual([-49, null, -70]);
 	});
 
 	it('returns the original series when every AP and band is included', () => {

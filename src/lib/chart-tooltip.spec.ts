@@ -23,7 +23,7 @@ const sample: MetricSample = {
 
 describe('chart tooltip', () => {
 	it('defaults to signal class only', () => {
-		expect(tooltipMetricRows(sample)).toEqual([{ label: 'Signal', value: 'Ideal' }]);
+		expect(tooltipMetricRows(sample)).toEqual([{ label: 'Signal', value: 'Excellent' }]);
 	});
 
 	it('shows raw numbers when requested', () => {
@@ -32,10 +32,10 @@ describe('chart tooltip', () => {
 
 	it('lists every live metric as quality classes when raw values are off', () => {
 		expect(tooltipMetricRows(sample, ALL_TOOLTIP_METRICS)).toEqual([
-			{ label: 'Signal', value: 'Ideal' },
+			{ label: 'Signal', value: 'Excellent' },
 			{ label: 'SNR', value: 'Excellent' },
 			{ label: 'Noise', value: 'Excellent' },
-			{ label: 'Satisfaction', value: 'Ideal' },
+			{ label: 'Satisfaction', value: 'Excellent' },
 			{ label: 'TX / RX', value: '300 Mbps / 400 Mbps' },
 			{ label: 'Retries', value: 'Excellent' },
 			{ label: 'AP', value: 'Office AP' },
@@ -62,7 +62,7 @@ describe('chart tooltip', () => {
 
 	it('keeps only the selected tooltip fields, in display order', () => {
 		expect(tooltipMetricLines(sample, ['channel', 'signalDbm', 'ap'])).toEqual([
-			'Signal  Ideal',
+			'Signal  Excellent',
 			'AP  Office AP',
 			'Channel  36 · AX'
 		]);

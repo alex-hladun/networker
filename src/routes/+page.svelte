@@ -12,7 +12,13 @@
 		type TooltipMetric
 	} from '$lib/chart-tooltip';
 	import { DemoRuntime } from '$lib/demo/runtime';
-	import { QUALITY_ZONES, ZONE_LABELS, qualityLabel, type QualityZone } from '$lib/metric-zones';
+	import {
+		METRIC_ZONE_SCALES,
+		QUALITY_ZONES,
+		ZONE_LABELS,
+		qualityLabel,
+		type QualityZone
+	} from '$lib/metric-zones';
 	import { readStoredScenarios, writeStoredScenarios } from '$lib/scenario-storage';
 	import { buildScenario, defaultScenarioName, scenarioHasSamples } from '$lib/scenarios';
 	import logo from '$lib/assets/logo.svg';
@@ -728,10 +734,22 @@
 										<strong>{displayValue(beacon.latest?.signalDbm, 0)}</strong>
 										<span>dBm</span>
 										<div class="signal-bars" aria-hidden="true">
-											<i class:lit={(beacon.latest?.signalDbm ?? -100) >= -65}></i>
-											<i class:lit={(beacon.latest?.signalDbm ?? -100) >= -60}></i>
-											<i class:lit={(beacon.latest?.signalDbm ?? -100) >= -55}></i>
-											<i class:lit={(beacon.latest?.signalDbm ?? -100) > -50}></i>
+											<i
+												class:lit={(beacon.latest?.signalDbm ?? -100) >=
+													METRIC_ZONE_SCALES.signalDbm.bad}
+											></i>
+											<i
+												class:lit={(beacon.latest?.signalDbm ?? -100) >=
+													METRIC_ZONE_SCALES.signalDbm.ok}
+											></i>
+											<i
+												class:lit={(beacon.latest?.signalDbm ?? -100) >=
+													METRIC_ZONE_SCALES.signalDbm.ideal}
+											></i>
+											<i
+												class:lit={(beacon.latest?.signalDbm ?? -100) >=
+													METRIC_ZONE_SCALES.signalDbm.excellent}
+											></i>
 										</div>
 									</div>
 
