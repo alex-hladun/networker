@@ -67,7 +67,7 @@
 	let range = $state(5 * 60 * 1000);
 	let selectedAp = $state<string | null>(null);
 	let selectedBands = $state<QualityZone[]>([...QUALITY_ZONES]);
-	let deviceScope = $state<'all' | 'beacons'>('all');
+	let deviceScope = $state<'all' | 'beacons'>('beacons');
 	let selectedTooltipMetrics = $state<TooltipMetric[]>([...DEFAULT_TOOLTIP_METRICS]);
 	let loading = $state(true);
 	let busyMac = $state<string | null>(null);

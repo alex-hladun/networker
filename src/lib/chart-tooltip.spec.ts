@@ -22,18 +22,12 @@ const sample: MetricSample = {
 };
 
 describe('chart tooltip', () => {
-	it('defaults to signal class and AP', () => {
-		expect(tooltipMetricRows(sample)).toEqual([
-			{ label: 'Signal', value: 'Ideal' },
-			{ label: 'AP', value: 'Office AP' }
-		]);
+	it('defaults to signal class only', () => {
+		expect(tooltipMetricRows(sample)).toEqual([{ label: 'Signal', value: 'Ideal' }]);
 	});
 
 	it('shows raw numbers when requested', () => {
-		expect(tooltipMetricLines(sample, undefined, true)).toEqual([
-			'Signal  -54 dBm',
-			'AP  Office AP'
-		]);
+		expect(tooltipMetricLines(sample, undefined, true)).toEqual(['Signal  -54 dBm']);
 	});
 
 	it('lists every live metric as quality classes when raw values are off', () => {

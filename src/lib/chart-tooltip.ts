@@ -22,7 +22,7 @@ export const TOOLTIP_METRICS: { key: TooltipMetric; label: string }[] = [
 
 export const ALL_TOOLTIP_METRICS = TOOLTIP_METRICS.map((item) => item.key);
 
-export const DEFAULT_TOOLTIP_METRICS: TooltipMetric[] = ['signalDbm', 'ap'];
+export const DEFAULT_TOOLTIP_METRICS: TooltipMetric[] = ['signalDbm'];
 
 function display(value: number | null, digits = 0, suffix = ''): string {
 	return value === null ? '—' : `${value.toFixed(digits)}${suffix}`;
