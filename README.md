@@ -12,7 +12,9 @@ history chart lists every recorded device at that time. The Devices filter defau
 beacons; switch it to All to plot every client. Tooltips default to signal only, shown as a quality
 class (Excellent, Ideal, OK, Bad, Terrible) with the value right-aligned; check **Show raw values**
 at the top of the chart for numbers, and use the Tooltip chips for AP, SNR, noise, satisfaction,
-rates, retries, and channel. Drag across the
+rates, retries, and channel. Click a device in the chart legend to show only that series; click it
+again to hide it. **All** restores every series, and hidden series stay hidden when the chart
+refreshes. Drag across the
 chart to mark a time window and save it as a scenario — the dashboard averages each metric for each
 device in that span so you can compare later. The history panel has a full-screen control that
 expands it to fill the app below the header. Open **Beacon sources** in the header to search Wi-Fi

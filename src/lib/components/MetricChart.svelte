@@ -16,6 +16,13 @@
 		type TooltipMetric,
 		type TooltipRow
 	} from '$lib/chart-tooltip';
+	import {
+		isAllSelected,
+		isItemVisible,
+		legendItemTitle,
+		pruneExclusiveSelection,
+		toggleExclusiveSelection
+	} from '$lib/chart-legend';
 	import { finalizeChartSelection } from '$lib/scenarios';
 	import type { BeaconSeries, MetricSample, TimeRange } from '$lib/types';
 
@@ -66,6 +73,7 @@
 	let dragStart = 0;
 	let dragCurrent = 0;
 	let showRawValues = $state(false);
+	let visibleMacs = $state<string[] | null>(null);
 	let overlayBox = $state<{ left: number; top: number; width: number; height: number } | null>(
 		null
 	);
@@ -78,6 +86,21 @@
 
 	const colors = ['#24d6a7', '#73a8ff', '#f6b950', '#f07b91', '#a78bfa', '#2dd4bf'];
 	const bands = $derived(zoneBands(metric));
+	const seriesMacs = $derived(series.map((beacon) => beacon.mac));
+	const activeVisibleMacs = $derived(pruneExclusiveSelection(visibleMacs, seriesMacs));
+	const allSeriesVisible = $derived(isAllSelected(activeVisibleMacs, seriesMacs));
+
+	function seriesColor(index: number): string {
+		return colors[index % colors.length];
+	}
+
+	function toggleLegendSeries(mac: string): void {
+		visibleMacs = toggleExclusiveSelection(activeVisibleMacs, mac, seriesMacs);
+	}
+
+	function showAllSeries(): void {
+		visibleMacs = null;
+	}
 
 	function metricValue(sample: MetricSample): number | null {
 		const value = sample[metric];
@@ -147,13 +170,14 @@
 		const pointCount = series.reduce((count, beacon) => count + beacon.points.length, 0);
 		const datasets = series.map((beacon, index) => ({
 			label: beacon.name,
+			hidden: !isItemVisible(activeVisibleMacs, beacon.mac),
 			data: beacon.points.map((point) => ({
 				x: point.sampledAt,
 				y: metricValue(point),
 				sample: point
 			})),
-			borderColor: colors[index % colors.length],
-			backgroundColor: colors[index % colors.length],
+			borderColor: seriesColor(index),
+			backgroundColor: seriesColor(index),
 			borderWidth: 2,
 			pointRadius: pointCount < 160 ? 2 : 0,
 			pointHoverRadius: 5,
@@ -184,6 +208,23 @@
 			return;
 		}
 		const titleValue = tooltip.dataPoints[0]?.parsed?.x;
+		const items = tooltip.dataPoints
+			.filter((item) =>
+				typeof item.datasetIndex === 'number'
+					? chart?.isDatasetVisible(item.datasetIndex) !== false
+					: true
+			)
+			.map((item) => ({
+				color: typeof item.dataset.borderColor === 'string' ? item.dataset.borderColor : '#aab7c5',
+				name: item.dataset.label ?? '',
+				rows: isChartPoint(item.raw)
+					? tooltipMetricRows(item.raw.sample, activeTooltipMetrics, activeShowRawValues)
+					: []
+			}));
+		if (items.length === 0) {
+			tooltipView = null;
+			return;
+		}
 		tooltipView = {
 			left: tooltip.caretX,
 			top: tooltip.caretY,
@@ -191,13 +232,7 @@
 				typeof titleValue === 'number' && activeTimeFormat
 					? activeTimeFormat.format(titleValue)
 					: '',
-			items: tooltip.dataPoints.map((item) => ({
-				color: typeof item.dataset.borderColor === 'string' ? item.dataset.borderColor : '#aab7c5',
-				name: item.dataset.label ?? '',
-				rows: isChartPoint(item.raw)
-					? tooltipMetricRows(item.raw.sample, activeTooltipMetrics, activeShowRawValues)
-					: []
-			}))
+			items
 		};
 	}
 
@@ -223,6 +258,9 @@
 			xScale.max = model.end;
 			yScale.min = model.axisRange.min;
 			yScale.max = model.axisRange.max;
+			for (const [index, dataset] of model.datasets.entries()) {
+				chart.setDatasetVisibility(index, dataset.hidden !== true);
+			}
 			chart.update('none');
 			untrack(() => syncOverlay());
 			return;
@@ -245,14 +283,7 @@
 				interaction: { mode: 'nearest', axis: 'x', intersect: false },
 				plugins: {
 					legend: {
-						position: 'top',
-						align: 'end',
-						labels: {
-							color: '#aab7c5',
-							usePointStyle: true,
-							boxWidth: 8,
-							font: { family: 'Inter, ui-sans-serif, system-ui' }
-						}
+						display: false
 					},
 					tooltip: {
 						enabled: false,
@@ -443,6 +474,29 @@
 			<span>{emptyDetail}</span>
 		</div>
 	{:else}
+		<div class="series-legend" role="toolbar" aria-label="Chart series">
+			<button
+				type="button"
+				class:active={allSeriesVisible}
+				aria-pressed={allSeriesVisible}
+				title="Show all series"
+				onclick={showAllSeries}>All</button
+			>
+			{#each series as beacon, index (beacon.mac)}
+				{@const visible = isItemVisible(activeVisibleMacs, beacon.mac)}
+				<button
+					type="button"
+					class:active={!allSeriesVisible && visible}
+					class:dimmed={!visible}
+					aria-pressed={!allSeriesVisible && visible}
+					title={legendItemTitle(beacon.name, visible, allSeriesVisible)}
+					onclick={() => toggleLegendSeries(beacon.mac)}
+				>
+					<i style:background={seriesColor(index)}></i>
+					{beacon.name}
+				</button>
+			{/each}
+		</div>
 		<div class="chart-canvas" class:selecting={dragging}>
 			<label class="raw-toggle">
 				<input type="checkbox" bind:checked={showRawValues} />
@@ -546,6 +600,49 @@
 	.raw-toggle input {
 		margin: 0;
 		accent-color: var(--accent);
+	}
+
+	.series-legend {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 0.2rem;
+		padding: 0 0 0.35rem;
+	}
+
+	.series-legend button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		border: 1px solid transparent;
+		border-radius: 999px;
+		padding: 0.22rem 0.5rem;
+		color: #aab7c5;
+		background: transparent;
+		font-size: 0.62rem;
+		cursor: pointer;
+	}
+
+	.series-legend button:hover,
+	.series-legend button.active {
+		color: #e7eef4;
+		border-color: #2b3d49;
+		background: #111f29;
+	}
+
+	.series-legend button.dimmed {
+		color: #667686;
+	}
+
+	.series-legend button.dimmed i {
+		opacity: 0.35;
+	}
+
+	.series-legend i {
+		width: 0.55rem;
+		height: 0.55rem;
+		border-radius: 50%;
+		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 	}
 
 	.chart-tooltip {
