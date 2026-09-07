@@ -36,9 +36,9 @@ export const ZONE_COLORS: Record<QualityZone, string> = {
 };
 
 export const METRIC_ZONE_SCALES: Record<ZonedMetric, ZoneScale> = {
-	signalDbm: { higherIsBetter: true, excellent: -50, ideal: -55, ok: -60, bad: -65 },
-	snrDb: { higherIsBetter: true, excellent: 40, ideal: 35, ok: 30, bad: 25 },
-	satisfaction: { higherIsBetter: true, excellent: 90, ideal: 80, ok: 70, bad: 60 },
+	signalDbm: { higherIsBetter: true, excellent: -50, ideal: -60, ok: -70, bad: -75 },
+	snrDb: { higherIsBetter: true, excellent: 40, ideal: 30, ok: 25, bad: 20 },
+	satisfaction: { higherIsBetter: true, excellent: 95, ideal: 90, ok: 80, bad: 70 },
 	noiseDbm: { higherIsBetter: false, excellent: -95, ideal: -90, ok: -85, bad: -80 },
 	retryPercent: { higherIsBetter: false, excellent: 2, ideal: 5, ok: 10, bad: 15 }
 };

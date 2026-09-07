@@ -151,7 +151,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 				? asBoolean(env.UNIFI_VERIFY_TLS, true)
 				: (stored?.verifyTls ?? true),
 		fixtureMode: asBoolean(env.UNIFI_FIXTURE_MODE, false),
-		pollIntervalSeconds: asBoundedNumber(env.POLL_INTERVAL_SECONDS, 30, 0.5, 3600),
+		pollIntervalSeconds: asBoundedNumber(env.POLL_INTERVAL_SECONDS, 0.5, 0.5, 3600),
 		retentionDays: asBoundedInteger(env.RETENTION_DAYS, 30, 1, 3650),
 		databasePath: env.DATABASE_PATH || path.join(dataDirectory, 'networker.sqlite')
 	};
