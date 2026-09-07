@@ -10,7 +10,11 @@
 		type ChartMetric,
 		type ZoneBand
 	} from '$lib/metric-zones';
-	import { ALL_TOOLTIP_METRICS, tooltipMetricLines, type TooltipMetric } from '$lib/chart-tooltip';
+	import {
+		DEFAULT_TOOLTIP_METRICS,
+		tooltipMetricLines,
+		type TooltipMetric
+	} from '$lib/chart-tooltip';
 	import { finalizeChartSelection } from '$lib/scenarios';
 	import type { BeaconSeries, MetricSample, TimeRange } from '$lib/types';
 
@@ -42,7 +46,7 @@
 		from,
 		to,
 		emptyDetail = 'Leave the collector running or choose a wider time range.',
-		tooltipMetrics = ALL_TOOLTIP_METRICS,
+		tooltipMetrics = DEFAULT_TOOLTIP_METRICS,
 		fill = false,
 		selectedRange = null,
 		onrangeselect
@@ -53,7 +57,7 @@
 	let ChartConstructor: typeof import('chart.js').Chart | null = null;
 	let drawnMetric: ChartMetric | null = null;
 	let drawnFormat: 'date' | 'seconds' | 'time' | null = null;
-	let activeTooltipMetrics: readonly TooltipMetric[] = ALL_TOOLTIP_METRICS;
+	let activeTooltipMetrics: readonly TooltipMetric[] = DEFAULT_TOOLTIP_METRICS;
 	let dragging = $state(false);
 	let dragStart = 0;
 	let dragCurrent = 0;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tooltipMetricLines } from './chart-tooltip';
+import { ALL_TOOLTIP_METRICS, tooltipMetricLines } from './chart-tooltip';
 import type { MetricSample } from './types';
 
 const sample: MetricSample = {
@@ -22,8 +22,12 @@ const sample: MetricSample = {
 };
 
 describe('chart tooltip', () => {
-	it('lists every live metric for a device', () => {
-		expect(tooltipMetricLines(sample)).toEqual([
+	it('defaults to signal and AP', () => {
+		expect(tooltipMetricLines(sample)).toEqual(['Signal  -54 dBm', 'AP  Office AP']);
+	});
+
+	it('lists every live metric when all fields are selected', () => {
+		expect(tooltipMetricLines(sample, ALL_TOOLTIP_METRICS)).toEqual([
 			'Signal  -54 dBm',
 			'SNR  42 dB',
 			'Noise  -96 dBm',

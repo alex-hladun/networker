@@ -23,6 +23,8 @@ export const TOOLTIP_METRICS: { key: TooltipMetric; label: string }[] = [
 
 export const ALL_TOOLTIP_METRICS = TOOLTIP_METRICS.map((item) => item.key);
 
+export const DEFAULT_TOOLTIP_METRICS: TooltipMetric[] = ['signalDbm', 'ap'];
+
 function display(value: number | null, digits = 0, suffix = ''): string {
 	return value === null ? '—' : `${value.toFixed(digits)}${suffix}`;
 }
@@ -45,9 +47,9 @@ const LINES: Record<TooltipMetric, (sample: MetricSample) => string> = {
 
 export function tooltipMetricLines(
 	sample: MetricSample,
-	selected: readonly TooltipMetric[] = ALL_TOOLTIP_METRICS
+	selected: readonly TooltipMetric[] = DEFAULT_TOOLTIP_METRICS
 ): string[] {
 	if (!sample.online) return ['Offline'];
-	const keys = selected.length ? selected : ALL_TOOLTIP_METRICS;
+	const keys = selected.length ? selected : DEFAULT_TOOLTIP_METRICS;
 	return ALL_TOOLTIP_METRICS.filter((key) => keys.includes(key)).map((key) => LINES[key](sample));
 }

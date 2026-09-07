@@ -5,7 +5,12 @@
 	import MetricChart from '$lib/components/MetricChart.svelte';
 	import ScenarioPanel from '$lib/components/ScenarioPanel.svelte';
 	import { filterChartSeries, listAccessPoints } from '$lib/chart-filters';
-	import { ALL_TOOLTIP_METRICS, TOOLTIP_METRICS, type TooltipMetric } from '$lib/chart-tooltip';
+	import {
+		ALL_TOOLTIP_METRICS,
+		DEFAULT_TOOLTIP_METRICS,
+		TOOLTIP_METRICS,
+		type TooltipMetric
+	} from '$lib/chart-tooltip';
 	import { DemoRuntime } from '$lib/demo/runtime';
 	import { QUALITY_ZONES, ZONE_LABELS, qualityLabel, type QualityZone } from '$lib/metric-zones';
 	import { readStoredScenarios, writeStoredScenarios } from '$lib/scenario-storage';
@@ -63,7 +68,7 @@
 	let selectedAp = $state<string | null>(null);
 	let selectedBands = $state<QualityZone[]>([...QUALITY_ZONES]);
 	let deviceScope = $state<'all' | 'beacons'>('all');
-	let selectedTooltipMetrics = $state<TooltipMetric[]>([...ALL_TOOLTIP_METRICS]);
+	let selectedTooltipMetrics = $state<TooltipMetric[]>([...DEFAULT_TOOLTIP_METRICS]);
 	let loading = $state(true);
 	let busyMac = $state<string | null>(null);
 	let errorMessage = $state<string | null>(null);
@@ -366,7 +371,7 @@
 		}
 		if (selectedTooltipMetrics.includes(key)) {
 			const next = selectedTooltipMetrics.filter((item) => item !== key);
-			selectedTooltipMetrics = next.length === 0 ? [...ALL_TOOLTIP_METRICS] : next;
+			selectedTooltipMetrics = next.length === 0 ? [...DEFAULT_TOOLTIP_METRICS] : next;
 			return;
 		}
 		selectedTooltipMetrics = [...selectedTooltipMetrics, key];

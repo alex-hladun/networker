@@ -8,8 +8,8 @@ signal quality over time in a Svelte chart — including devices you never pinne
 
 The collector is read-only: it does not change access points, channels, radios, or WLAN settings. A
 Reconnect control on each beacon card can ask UniFi to reconnect that wireless client. Hovering the
-history chart lists every recorded device at that time; use the Tooltip chips to choose which
-fields appear (signal, SNR, noise, satisfaction, rates, retries, AP, and channel). Drag across the
+history chart lists every recorded device at that time. Tooltips default to signal and AP; use the
+Tooltip chips for SNR, noise, satisfaction, rates, retries, and channel. Drag across the
 chart to mark a time window and save it as a scenario — the dashboard averages each metric for each
 device in that span so you can compare later. The history panel has a full-screen control that
 expands it to fill the app below the header. Use the Devices filter to plot every client or only
