@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 	import { onMount } from 'svelte';
+	import logo from '$lib/assets/logo.svg';
 	import type { PublicConnection } from '$lib/types';
 
 	const demoMode = env.PUBLIC_DEMO === 'true';
@@ -87,13 +88,7 @@
 			href={resolve(configured ? '/' : '/login')}
 			aria-label="UniFi Beacon Monitor home"
 		>
-			<span class="brand-mark">
-				<svg viewBox="0 0 24 24" aria-hidden="true">
-					<path
-						d="M5 16.5a10 10 0 0 1 14 0M8 13a6 6 0 0 1 8 0m-5.6-3.2a2.7 2.7 0 0 1 3.2 0M12 19h.01"
-					/>
-				</svg>
-			</span>
+			<img class="brand-mark" src={logo} alt="" width="38" height="38" />
 			<span>
 				<strong>Beacon</strong>
 				<small>Wi-Fi field monitor</small>
@@ -252,21 +247,8 @@
 	.brand-mark {
 		width: 38px;
 		height: 38px;
-		display: grid;
-		place-items: center;
 		border-radius: 11px;
-		color: #061611;
-		background: var(--accent);
 		box-shadow: 0 0 28px rgba(36, 214, 167, 0.2);
-	}
-
-	svg {
-		width: 1.25rem;
-		fill: none;
-		stroke: currentColor;
-		stroke-width: 1.7;
-		stroke-linecap: round;
-		stroke-linejoin: round;
 	}
 
 	.brand strong,

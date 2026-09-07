@@ -6,9 +6,11 @@ files:
   - electron/**/*
   - build/**/*
   - package.json
+  - resources/icon.png
 asarUnpack:
   - '**/*.node'
 mac:
+  icon: resources/icon.icns
   target:
     - dmg
     - zip

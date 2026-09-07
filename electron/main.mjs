@@ -85,6 +85,7 @@ async function createWindow() {
 		minWidth: 900,
 		minHeight: 640,
 		title: 'UniFi Beacon Monitor',
+		icon: path.join(__dirname, '..', 'resources', 'icon.png'),
 		show: false,
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.mjs'),

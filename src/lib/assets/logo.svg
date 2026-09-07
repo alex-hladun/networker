@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="title">
+	<title id="title">UniFi Beacon Monitor</title>
+	<rect width="32" height="32" rx="8" fill="#24d6a7" />
+	<g
+		fill="none"
+		stroke="#061611"
+		stroke-width="2.15"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+	>
+		<path d="M8.2 19.2a11 11 0 0 1 15.6 0" />
+		<path d="M11.1 16.05a6.9 6.9 0 0 1 9.8 0" />
+		<path d="M13.95 13a2.9 2.9 0 0 1 4.1 0" />
+	</g>
+	<circle cx="16" cy="22.15" r="1.45" fill="#061611" />
+</svg>

@@ -75,6 +75,10 @@ The packaged app stores history and `connection.json` in
 `~/Library/Application Support/UniFi Beacon Monitor/data`. Use **Help → Open data folder** if you
 need that path. Environment variables remain an optional override for automation.
 
+The Mac app, browser tab, and dashboard header share the mint Wi-Fi beacon mark. Dock and
+window icons come from `resources/icon.icns` (built from `resources/icon.png`). The web UI uses
+`src/lib/assets/logo.svg` plus PNG/ICO copies in `static/` (`favicon.ico`, `apple-touch-icon.png`).
+
 ## Run with Docker Compose
 
 ```sh
