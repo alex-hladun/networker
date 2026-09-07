@@ -28,3 +28,5 @@ vite.config.ts.timestamp-*
 
 # Editor / debug session artifacts
 /.cursor
+
+.pnpm-store
