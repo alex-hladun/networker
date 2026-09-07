@@ -13,7 +13,8 @@ Tooltip chips for SNR, noise, satisfaction, rates, retries, and channel. Drag ac
 chart to mark a time window and save it as a scenario — the dashboard averages each metric for each
 device in that span so you can compare later. The history panel has a full-screen control that
 expands it to fill the app below the header. Use the Devices filter to plot every client or only
-pinned beacons.
+pinned beacons. Open **Beacon sources** in the header to search Wi-Fi clients and add or remove
+beacons without leaving the live view.
 
 ## What it records
 

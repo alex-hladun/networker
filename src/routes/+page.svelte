@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { env } from '$env/dynamic/public';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import MetricChart from '$lib/components/MetricChart.svelte';
 	import ScenarioPanel from '$lib/components/ScenarioPanel.svelte';
 	import { filterChartSeries, listAccessPoints } from '$lib/chart-filters';
@@ -73,6 +73,9 @@
 	let busyMac = $state<string | null>(null);
 	let errorMessage = $state<string | null>(null);
 	let chartExpanded = $state(false);
+	let sourcesOpen = $state(false);
+	let sourcesNav = $state<HTMLElement | null>(null);
+	let sourcesSearch = $state<HTMLInputElement | null>(null);
 	let scenarios = $state<Scenario[]>([]);
 	let selectedRange = $state<TimeRange | null>(null);
 	let draftName = $state('');
@@ -81,10 +84,12 @@
 	let scenariosHydrated = false;
 
 	const filteredClients = $derived(
-		clients.filter((client) => {
-			const query = search.trim().toLowerCase();
-			return !query || client.name.toLowerCase().includes(query) || client.mac.includes(query);
-		})
+		clients
+			.filter((client) => {
+				const query = search.trim().toLowerCase();
+				return !query || client.name.toLowerCase().includes(query) || client.mac.includes(query);
+			})
+			.toSorted((a, b) => Number(b.selected) - Number(a.selected))
 	);
 	const metricConfig = $derived(METRICS.find((item) => item.key === metric) ?? METRICS[0]);
 	const availableRanges = $derived(
@@ -381,6 +386,18 @@
 		chartExpanded = !chartExpanded;
 	}
 
+	function toggleSources(): void {
+		sourcesOpen = !sourcesOpen;
+	}
+
+	function toggleClientBeacon(client: ClientOption): void {
+		if (client.selected) {
+			void removeBeacon(client.mac);
+			return;
+		}
+		void addBeacon(client);
+	}
+
 	function toggleBand(zone: QualityZone): void {
 		if (allBandsSelected) {
 			selectedBands = [zone];
@@ -410,6 +427,30 @@
 		return () => {
 			document.removeEventListener('keydown', onKey);
 			document.body.classList.remove('chart-expanded');
+		};
+	});
+
+	$effect(() => {
+		if (!sourcesOpen) return;
+		void tick().then(() => {
+			if (sourcesOpen) sourcesSearch?.focus();
+		});
+		const onPointer = (event: PointerEvent) => {
+			const target = event.target;
+			if (!(target instanceof Node) || !sourcesNav?.contains(target)) {
+				sourcesOpen = false;
+			}
+		};
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key !== 'Escape' && event.code !== 'Escape') return;
+			event.stopImmediatePropagation();
+			sourcesOpen = false;
+		};
+		document.addEventListener('pointerdown', onPointer);
+		document.addEventListener('keydown', onKey, true);
+		return () => {
+			document.removeEventListener('pointerdown', onPointer);
+			document.removeEventListener('keydown', onKey, true);
 		};
 	});
 
@@ -448,6 +489,101 @@
 				<small>Wi-Fi field monitor</small>
 			</span>
 		</a>
+
+		<nav class="sources-nav" bind:this={sourcesNav}>
+			<button
+				class="sources-toggle"
+				type="button"
+				aria-expanded={sourcesOpen}
+				aria-controls="beacon-sources-menu"
+				aria-label={`Beacon sources, ${beacons.length} pinned`}
+				onclick={toggleSources}
+			>
+				<span class="sources-label-full">Beacon sources</span>
+				<span class="sources-label-short">Sources</span>
+				<strong>{beacons.length}</strong>
+				<svg viewBox="0 0 24 24" aria-hidden="true">
+					<path d="m6 9 6 6 6-6" />
+				</svg>
+			</button>
+
+			{#if sourcesOpen}
+				<div
+					id="beacon-sources-menu"
+					class="client-panel"
+					role="region"
+					aria-label="Beacon sources"
+				>
+					<div class="panel-heading">
+						<div>
+							<p class="eyebrow">Beacon sources</p>
+							<h2>Wi-Fi clients</h2>
+						</div>
+						<span>{clients.length}</span>
+					</div>
+
+					<label class="search">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<circle cx="11" cy="11" r="7" />
+							<path d="m20 20-4-4" />
+						</svg>
+						<input
+							bind:this={sourcesSearch}
+							bind:value={search}
+							placeholder="Search name or MAC"
+							aria-label="Search Wi-Fi clients"
+						/>
+					</label>
+
+					<div class="client-list">
+						{#if clients.length === 0}
+							<div class="client-empty">
+								<strong>No wireless clients found</strong>
+								<span>The list updates after a successful UniFi poll.</span>
+							</div>
+						{:else if filteredClients.length === 0}
+							<div class="client-empty">
+								<strong>No matching clients</strong>
+								<span>Try a different name or MAC.</span>
+							</div>
+						{:else}
+							{#each filteredClients as client (client.mac)}
+								<div class="client-row">
+									<span class:online={client.connected} class="client-dot"></span>
+									<div>
+										<strong>{client.name}</strong>
+										<span>{client.ipAddress ?? client.mac}</span>
+									</div>
+									<button
+										type="button"
+										class:selected={client.selected}
+										disabled={busyMac === client.mac}
+										onclick={() => toggleClientBeacon(client)}
+										aria-label={client.selected
+											? `Remove ${client.name} as a beacon`
+											: `Add ${client.name} as a beacon`}
+									>
+										{client.selected ? 'Remove' : 'Add'}
+									</button>
+								</div>
+							{/each}
+						{/if}
+					</div>
+
+					<div class="panel-tip">
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path
+								d="M9 18h6m-5 3h4m3-12a5 5 0 1 0-10 0c0 2 1 3 2 4.2.5.6.8 1.2.8 1.8h2.4c0-.6.3-1.2.8-1.8C16 12 17 11 17 9Z"
+							/>
+						</svg>
+						<p>
+							<strong>Beacons are optional pins.</strong> History is stored for every wireless client.
+							Speakers, TVs, plugs, and desktops still make the best live cards.
+						</p>
+					</div>
+				</div>
+			{/if}
+		</nav>
 
 		<div class="collector-state">
 			<span
@@ -566,7 +702,7 @@
 								<span></span><span></span><span></span>
 							</div>
 							<h3>No beacons selected</h3>
-							<p>Choose a stable Wi-Fi client from the panel to start a coverage baseline.</p>
+							<p>Open Beacon sources in the header to pin a client as a coverage baseline.</p>
 						</div>
 					{:else}
 						<div class="beacon-grid">
@@ -807,69 +943,6 @@
 					/>
 				</section>
 			</div>
-
-			<aside class="client-panel">
-				<div class="panel-heading">
-					<div>
-						<p class="eyebrow">Beacon sources</p>
-						<h2>Wi-Fi clients</h2>
-					</div>
-					<span>{clients.length}</span>
-				</div>
-
-				<label class="search">
-					<svg viewBox="0 0 24 24" aria-hidden="true">
-						<circle cx="11" cy="11" r="7" />
-						<path d="m20 20-4-4" />
-					</svg>
-					<input
-						bind:value={search}
-						placeholder="Search name or MAC"
-						aria-label="Search Wi-Fi clients"
-					/>
-				</label>
-
-				<div class="client-list">
-					{#if clients.length === 0}
-						<div class="client-empty">
-							<strong>No wireless clients found</strong>
-							<span>The list updates after a successful UniFi poll.</span>
-						</div>
-					{:else}
-						{#each filteredClients as client (client.mac)}
-							<div class="client-row">
-								<span class:online={client.connected} class="client-dot"></span>
-								<div>
-									<strong>{client.name}</strong>
-									<span>{client.ipAddress ?? client.mac}</span>
-								</div>
-								<button
-									class:selected={client.selected}
-									disabled={client.selected || busyMac === client.mac}
-									onclick={() => addBeacon(client)}
-									aria-label={client.selected
-										? `${client.name} is selected`
-										: `Add ${client.name} as a beacon`}
-								>
-									{client.selected ? 'Added' : 'Add'}
-								</button>
-							</div>
-						{/each}
-					{/if}
-				</div>
-
-				<div class="panel-tip">
-					<svg viewBox="0 0 24 24" aria-hidden="true">
-						<path
-							d="M9 18h6m-5 3h4m3-12a5 5 0 1 0-10 0c0 2 1 3 2 4.2.5.6.8 1.2.8 1.8h2.4c0-.6.3-1.2.8-1.8C16 12 17 11 17 9Z"
-						/>
-					</svg>
-					<p>
-						<strong>Beacons are optional pins.</strong> History is stored for every wireless client. Speakers,
-						TVs, plugs, and desktops still make the best live cards.
-					</p>
-				</div>
-			</aside>
 		</div>
 	</main>
 
@@ -943,13 +1016,14 @@
 		padding: 0 max(24px, calc((100vw - 1480px) / 2));
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		gap: 1rem;
 		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 		background: rgba(7, 16, 23, 0.72);
 		backdrop-filter: blur(18px);
 		position: sticky;
 		top: 0;
 		z-index: 20;
+		overflow: visible;
 	}
 
 	.brand {
@@ -958,6 +1032,7 @@
 		gap: 0.8rem;
 		color: var(--text);
 		text-decoration: none;
+		flex-shrink: 0;
 	}
 
 	.brand-mark {
@@ -998,6 +1073,63 @@
 		display: flex;
 		align-items: center;
 		gap: 0.7rem;
+		flex-shrink: 0;
+	}
+
+	.sources-nav {
+		position: relative;
+		margin-left: auto;
+		flex-shrink: 0;
+	}
+
+	.sources-toggle {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		height: 38px;
+		padding: 0 0.7rem 0 0.85rem;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		background: rgba(13, 24, 33, 0.92);
+		color: var(--text);
+		cursor: pointer;
+	}
+
+	.sources-toggle:hover,
+	.sources-toggle[aria-expanded='true'] {
+		border-color: #2b3d49;
+		background: #111f29;
+	}
+
+	.sources-label-full,
+	.sources-label-short {
+		font-size: 0.75rem;
+		font-weight: 650;
+		white-space: nowrap;
+	}
+
+	.sources-label-short {
+		display: none;
+	}
+
+	.sources-toggle strong {
+		border: 1px solid #293a47;
+		border-radius: 999px;
+		padding: 0.12rem 0.42rem;
+		font-size: 0.58rem;
+		color: var(--accent);
+		background: var(--accent-soft);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.sources-toggle svg {
+		width: 0.85rem;
+		color: var(--muted);
+		transition: transform 0.15s ease;
+	}
+
+	.sources-toggle[aria-expanded='true'] svg {
+		transform: rotate(180deg);
 	}
 
 	.change-connection {
@@ -1180,11 +1312,7 @@
 	}
 
 	.workspace {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) 330px;
-		gap: 2rem;
 		padding-top: 2.5rem;
-		align-items: start;
 	}
 
 	.content {
@@ -1686,12 +1814,20 @@
 	}
 
 	.client-panel {
-		position: sticky;
-		top: 100px;
+		position: fixed;
+		top: calc(var(--topbar-height) + 8px);
+		right: max(24px, calc((100vw - 1480px) / 2));
+		z-index: 21;
+		width: 360px;
+		max-width: min(360px, calc(100vw - 32px));
+		max-height: min(70vh, 640px);
+		display: flex;
+		flex-direction: column;
 		border: 1px solid var(--border);
-		background: rgba(13, 24, 33, 0.88);
+		background: rgba(13, 24, 33, 0.96);
 		border-radius: 13px;
 		overflow: hidden;
+		box-shadow: 0 22px 55px rgba(0, 0, 0, 0.45);
 	}
 
 	.panel-heading {
@@ -1747,7 +1883,8 @@
 	}
 
 	.client-list {
-		max-height: 480px;
+		flex: 1;
+		max-height: min(48vh, 420px);
 		overflow-y: auto;
 		border-top: 1px solid rgba(255, 255, 255, 0.05);
 		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -1802,9 +1939,14 @@
 	}
 
 	.client-row button.selected {
-		color: #718392;
-		background: transparent;
-		border-color: #263642;
+		color: var(--danger);
+		background: rgba(240, 123, 145, 0.1);
+		border-color: rgba(240, 123, 145, 0.28);
+	}
+
+	.client-row button.selected:hover:not(:disabled) {
+		background: var(--danger);
+		color: #2a1016;
 	}
 
 	button:disabled {
@@ -1864,21 +2006,6 @@
 		font-size: 0.62rem;
 	}
 
-	@media (max-width: 1080px) {
-		.workspace {
-			grid-template-columns: 1fr;
-		}
-
-		.client-panel {
-			position: static;
-			grid-row: 1;
-		}
-
-		.client-list {
-			max-height: 300px;
-		}
-	}
-
 	@media (max-width: 760px) {
 		:global(:root) {
 			--topbar-height: 68px;
@@ -1891,6 +2018,27 @@
 
 		.brand small {
 			display: none;
+		}
+
+		.sources-label-full {
+			display: none;
+		}
+
+		.sources-label-short {
+			display: inline;
+		}
+
+		.client-panel {
+			position: fixed;
+			top: calc(var(--topbar-height) + 8px);
+			left: 16px;
+			right: 16px;
+			width: auto;
+			max-width: none;
+		}
+
+		.client-list {
+			max-height: min(42vh, 320px);
 		}
 
 		.collector-state strong {
