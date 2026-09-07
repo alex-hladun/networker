@@ -27,6 +27,13 @@ function snapshot(txRetries = 10, txAttempts = 1000): ProviderSnapshot {
 				ipAddress: '192.168.1.30',
 				uplinkDeviceId: 'ap',
 				connected: true
+			},
+			{
+				mac: '11:22:33:44:55:66',
+				name: 'Phone',
+				ipAddress: '192.168.1.40',
+				uplinkDeviceId: 'ap',
+				connected: true
 			}
 		],
 		stations: [
@@ -49,6 +56,26 @@ function snapshot(txRetries = 10, txAttempts = 1000): ProviderSnapshot {
 				apName: 'Office AP',
 				txRetries,
 				txAttempts
+			},
+			{
+				mac: '11:22:33:44:55:66',
+				name: 'Phone',
+				ipAddress: '192.168.1.40',
+				uplinkDeviceId: 'ap',
+				connected: true,
+				signalDbm: -72,
+				noiseDbm: -94,
+				snrDb: 22,
+				satisfaction: 70,
+				txRateKbps: 120_000,
+				rxRateKbps: 80_000,
+				channel: 44,
+				radio: 'wifi1',
+				radioProtocol: 'ax',
+				apMac: '00:11:22:33:44:55',
+				apName: 'Office AP',
+				txRetries: 4,
+				txAttempts: 800
 			}
 		],
 		controllerVersion: '10.3.58',
@@ -100,6 +127,23 @@ describe('Collector', () => {
 		await collector.runOnce();
 
 		expect(repository.listBeacons()[0].latest?.online).toBe(false);
+		database.raw.close();
+	});
+
+	it('records every wireless client even when it is not a beacon', async () => {
+		const database = createDatabase(':memory:');
+		const repository = new Repository(database);
+		repository.upsertBeacon('aa:bb:cc:dd:ee:ff', 'Office', 'default');
+		const collector = new Collector(config, repository, new SequenceProvider([snapshot()]));
+
+		await collector.runOnce();
+
+		const history = repository.getMetrics(0, Date.now() + 1, 100);
+		expect(repository.listBeacons().map((beacon) => beacon.mac)).toEqual(['aa:bb:cc:dd:ee:ff']);
+		expect(history.series.map((series) => series.name).sort()).toEqual(['Office', 'Phone']);
+		expect(history.series.find((series) => series.name === 'Phone')?.points[0]?.signalDbm).toBe(
+			-72
+		);
 		database.raw.close();
 	});
 });

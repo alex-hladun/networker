@@ -106,4 +106,23 @@ describe('Repository', () => {
 		expect(repository.listScenarios()).toEqual([]);
 		database.raw.close();
 	});
+
+	it('keeps history for devices that are not selected as beacons', () => {
+		const database = createDatabase(':memory:');
+		const repository = new Repository(database);
+		const now = Date.now();
+		repository.upsertDevice('11:22:33:44:55:66', 'Phone', 'default', now);
+		repository.recordSamples([{ beaconMac: '11:22:33:44:55:66', ...sample(now, true, -72) }]);
+
+		expect(repository.listBeacons()).toEqual([]);
+		const history = repository.getMetrics(now - 10_000, now + 1, 100);
+		expect(history.series).toEqual([
+			expect.objectContaining({
+				mac: '11:22:33:44:55:66',
+				name: 'Phone'
+			})
+		]);
+		expect(history.series[0].points[0]?.signalDbm).toBe(-72);
+		database.raw.close();
+	});
 });

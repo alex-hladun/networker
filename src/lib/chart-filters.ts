@@ -54,17 +54,23 @@ function matchesFilters(
 
 export function filterChartSeries(
 	series: BeaconSeries[],
-	options: { apId?: string | null; bands?: readonly QualityZone[] | null } = {}
+	options: {
+		apId?: string | null;
+		bands?: readonly QualityZone[] | null;
+		macs?: ReadonlySet<string> | null;
+	} = {}
 ): BeaconSeries[] {
 	const apId = options.apId ?? null;
+	const macs = options.macs ?? null;
 	const bands =
 		options.bands && options.bands.length > 0 && options.bands.length < QUALITY_ZONES.length
 			? new Set(options.bands)
 			: null;
 
-	if (!apId && !bands) return series;
+	const scoped = macs ? series.filter((beacon) => macs.has(beacon.mac)) : series;
+	if (!apId && !bands) return scoped;
 
-	return series
+	return scoped
 		.map((beacon) => ({
 			...beacon,
 			points: beacon.points.map((point) =>

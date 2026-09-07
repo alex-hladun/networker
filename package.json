@@ -7,6 +7,7 @@
 	"main": "electron/main.mjs",
 	"scripts": {
 		"dev": "vite dev",
+		"docker:dev": "docker compose -f compose.yaml -f compose.dev.yaml up --build",
 		"build": "vite build",
 		"build:demo": "PUBLIC_DEMO=true BASE_PATH=/networker vite build",
 		"preview": "vite preview",

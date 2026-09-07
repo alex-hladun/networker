@@ -1,3 +1,4 @@
+# Production image. For local Vite HMR, use: pnpm docker:dev
 services:
   monitor:
     build: .

@@ -81,7 +81,7 @@
 				</div>
 			</div>
 			<p class="draft-note">
-				Averages each metric for every beacon in this window. Saved snapshots stay available after
+				Averages each metric for every device in this window. Saved snapshots stay available after
 				the raw samples age out.
 			</p>
 			{#if !scenarioHasSamples(draftScenario)}
@@ -129,7 +129,7 @@
 				</caption>
 				<thead>
 					<tr>
-						<th>Beacon</th>
+						<th>Device</th>
 						<th>Samples</th>
 						{#each SCENARIO_METRIC_COLUMNS as column (column.key)}
 							<th>{column.label}</th>

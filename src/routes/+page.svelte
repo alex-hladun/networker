@@ -62,6 +62,7 @@
 	let range = $state(5 * 60 * 1000);
 	let selectedAp = $state<string | null>(null);
 	let selectedBands = $state<QualityZone[]>([...QUALITY_ZONES]);
+	let deviceScope = $state<'all' | 'beacons'>('all');
 	let selectedTooltipMetrics = $state<TooltipMetric[]>([...ALL_TOOLTIP_METRICS]);
 	let loading = $state(true);
 	let busyMac = $state<string | null>(null);
@@ -93,12 +94,18 @@
 		selectedTooltipMetrics.length === ALL_TOOLTIP_METRICS.length
 	);
 	const chartSeries = $derived(
-		filterChartSeries(history?.series ?? [], { apId: selectedAp, bands: selectedBands })
+		filterChartSeries(history?.series ?? [], {
+			apId: selectedAp,
+			bands: selectedBands,
+			macs: deviceScope === 'beacons' ? new Set(beacons.map((beacon) => beacon.mac)) : null
+		})
 	);
 	const chartEmptyDetail = $derived(
-		selectedAp || !allBandsSelected
-			? 'No samples match the selected AP or signal band.'
-			: 'Leave the collector running or choose a wider time range.'
+		deviceScope === 'beacons' && beacons.length === 0
+			? 'Add a beacon or switch the device filter to All.'
+			: selectedAp || !allBandsSelected
+				? 'No samples match the selected AP or signal band.'
+				: 'Leave the collector running or choose a wider time range.'
 	);
 	const draftScenario = $derived(
 		selectedRange && history
@@ -465,8 +472,8 @@
 				<p class="eyebrow">Network visibility</p>
 				<h1>See the signal your devices actually receive.</h1>
 				<p class="lede">
-					Use stationary clients as beacons to compare coverage, spot dropouts, and watch Wi-Fi
-					quality change over time.
+					Every wireless client is recorded on each poll. Pin stationary devices as beacons for the
+					live cards, then compare any client on the history chart.
 				</p>
 			</div>
 			<div class="hero-stats">
@@ -699,6 +706,19 @@
 					</div>
 
 					<div class="chart-filters">
+						<div class="filter-group" aria-label="Filter by device">
+							<span>Devices</span>
+							<button
+								class:active={deviceScope === 'all'}
+								aria-pressed={deviceScope === 'all'}
+								onclick={() => (deviceScope = 'all')}>All</button
+							>
+							<button
+								class:active={deviceScope === 'beacons'}
+								aria-pressed={deviceScope === 'beacons'}
+								onclick={() => (deviceScope = 'beacons')}>Beacons</button
+							>
+						</div>
 						<div class="filter-group" aria-label="Filter by access point">
 							<span>AP</span>
 							<button
@@ -840,8 +860,8 @@
 						/>
 					</svg>
 					<p>
-						<strong>Choose fixed devices.</strong> Speakers, TVs, plugs, and desktops make better beacons
-						than phones that move around.
+						<strong>Beacons are optional pins.</strong> History is stored for every wireless client. Speakers,
+						TVs, plugs, and desktops still make the best live cards.
 					</p>
 				</div>
 			</aside>

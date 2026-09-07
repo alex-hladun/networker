@@ -20,12 +20,18 @@ export const FIXTURE_CLIENTS = [
 	{ mac: '02:00:00:00:00:44', name: 'Patio beacon', signal: -79, channel: 1 }
 ] as const;
 
+export const FIXTURE_OTHER_CLIENTS = [
+	{ mac: '02:00:00:00:00:55', name: 'Phone', signal: -68, channel: 44 }
+] as const;
+
+export const ALL_FIXTURE_CLIENTS = [...FIXTURE_CLIENTS, ...FIXTURE_OTHER_CLIENTS];
+
 export const DEMO_POLL_INTERVAL_SECONDS = 2;
 export const DEMO_RETENTION_DAYS = 30;
 
 export function createFixtureSnapshot(now = Date.now()): FixtureSnapshot {
 	const nowSeconds = now / 1000;
-	const stations: FixtureStation[] = FIXTURE_CLIENTS.flatMap((client, index) => {
+	const stations: FixtureStation[] = ALL_FIXTURE_CLIENTS.flatMap((client, index) => {
 		const temporarilyOffline = index === 3 && Math.floor(nowSeconds / 90) % 5 === 0;
 		if (temporarilyOffline) return [];
 
@@ -58,7 +64,7 @@ export function createFixtureSnapshot(now = Date.now()): FixtureSnapshot {
 	});
 
 	return {
-		clients: FIXTURE_CLIENTS.map((client, index) => ({
+		clients: ALL_FIXTURE_CLIENTS.map((client, index) => ({
 			mac: client.mac,
 			name: client.name,
 			ipAddress: `192.168.1.${40 + index}`,

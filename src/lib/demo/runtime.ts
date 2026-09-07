@@ -12,7 +12,8 @@ import {
 	createFixtureSnapshot,
 	DEMO_POLL_INTERVAL_SECONDS,
 	DEMO_RETENTION_DAYS,
-	FIXTURE_CLIENTS
+	FIXTURE_CLIENTS,
+	ALL_FIXTURE_CLIENTS
 } from './fixture';
 
 type ClientOption = DiscoveredClient & { selected: boolean };
@@ -58,6 +59,7 @@ function retryPercent(
 
 export class DemoRuntime {
 	private readonly selected = new Map<string, { name: string; createdAt: number }>();
+	private readonly names = new Map<string, string>();
 	private readonly samples: StoredSample[] = [];
 	private readonly counters = new Map<
 		string,
@@ -65,6 +67,7 @@ export class DemoRuntime {
 	>();
 	private scenarios: Scenario[] = [];
 	private lastPollSucceededAt: number | null = null;
+	private previousStationMacs = new Set<string>();
 
 	constructor(now = Date.now()) {
 		for (const client of FIXTURE_CLIENTS) {
@@ -84,7 +87,7 @@ export class DemoRuntime {
 			lastError: null,
 			warning: 'Live demo with simulated beacons. Values are not from a UniFi console.',
 			controllerVersion: 'fixture-10.3.58',
-			discoveredClientCount: FIXTURE_CLIENTS.length,
+			discoveredClientCount: ALL_FIXTURE_CLIENTS.length,
 			selectedBeaconCount: this.selected.size,
 			pollIntervalSeconds: DEMO_POLL_INTERVAL_SECONDS,
 			retentionDays: DEMO_RETENTION_DAYS
@@ -121,10 +124,19 @@ export class DemoRuntime {
 	getMetrics(from: number, to: number, maxPoints = 600): MetricsResponse {
 		const range = Math.max(1, to - from);
 		const bucketMs = Math.max(500, Math.ceil(range / maxPoints));
-		const series = this.getBeacons().map((beacon) => {
+		const macs = [
+			...new Set(
+				this.samples
+					.filter((sample) => sample.sampledAt >= from && sample.sampledAt <= to)
+					.map((sample) => sample.beaconMac)
+			)
+		].sort((left, right) =>
+			(this.names.get(left) ?? left).localeCompare(this.names.get(right) ?? right)
+		);
+		const series = macs.map((mac) => {
 			const buckets = new Map<number, StoredSample[]>();
 			for (const sample of this.samples) {
-				if (sample.beaconMac !== beacon.mac || sample.sampledAt < from || sample.sampledAt > to) {
+				if (sample.beaconMac !== mac || sample.sampledAt < from || sample.sampledAt > to) {
 					continue;
 				}
 				const key = Math.floor(sample.sampledAt / bucketMs) * bucketMs;
@@ -137,7 +149,7 @@ export class DemoRuntime {
 				.sort((left, right) => left[0] - right[0])
 				.map(([sampledAt, group]) => averageSample(sampledAt, group));
 
-			return { mac: beacon.mac, name: beacon.name, points };
+			return { mac, name: this.names.get(mac) ?? this.selected.get(mac)?.name ?? mac, points };
 		});
 
 		return { from, to, bucketSeconds: bucketMs / 1000, series };
@@ -183,7 +195,17 @@ export class DemoRuntime {
 	private recordAt(sampledAt: number): void {
 		const snapshot = createFixtureSnapshot(sampledAt);
 		const stations = new Map(snapshot.stations.map((station) => [station.mac, station]));
-		for (const mac of this.selected.keys()) {
+		const stationMacs = new Set(stations.keys());
+		for (const client of snapshot.clients) this.names.set(client.mac, client.name);
+		for (const station of snapshot.stations) this.names.set(station.mac, station.name);
+
+		const macs = new Set([
+			...stationMacs,
+			...this.selected.keys(),
+			...[...this.previousStationMacs].filter((mac) => !stationMacs.has(mac))
+		]);
+
+		for (const mac of macs) {
 			const station = stations.get(mac);
 			const previous = this.counters.get(mac) ?? null;
 			const sample: StoredSample = station
@@ -210,6 +232,7 @@ export class DemoRuntime {
 			this.samples.push(sample);
 			if (station) this.counters.set(mac, station);
 		}
+		this.previousStationMacs = stationMacs;
 		this.lastPollSucceededAt = sampledAt;
 		const cutoff = sampledAt - DEMO_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 		while (this.samples[0] && this.samples[0].sampledAt < cutoff) this.samples.shift();

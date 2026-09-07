@@ -29,7 +29,7 @@ describe('loadConfig', () => {
 		expect(loadConfig({ POLL_INTERVAL_SECONDS: '0.5' }).pollIntervalSeconds).toBe(0.5);
 		expect(loadConfig({ POLL_INTERVAL_SECONDS: '1' }).pollIntervalSeconds).toBe(1);
 		expect(loadConfig({ POLL_INTERVAL_SECONDS: '0.1' }).pollIntervalSeconds).toBe(0.5);
-		expect(loadConfig({}).pollIntervalSeconds).toBe(30);
+		expect(loadConfig({}).pollIntervalSeconds).toBe(0.5);
 	});
 
 	it('reads connection.json when env credentials are empty', () => {
@@ -91,6 +91,7 @@ describe('publicConnection', () => {
 	it('never includes the API key or password', () => {
 		const view = publicConnection(
 			loadConfig({
+				DATA_DIR: tempDataDir(),
 				UNIFI_URL: 'https://192.168.1.1',
 				UNIFI_API_KEY: 'secret-key',
 				UNIFI_USERNAME: 'monitor',

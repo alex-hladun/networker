@@ -3,7 +3,7 @@ import type { AppConfig } from './config';
 import { isConfigured } from './config';
 import type { Repository } from './db/repository';
 import { deriveRetryPercent } from './unifi/normalize';
-import type { NetworkProvider } from './unifi/types';
+import type { NetworkProvider, NormalizedStation } from './unifi/types';
 
 const emptySample = (sampledAt: number): MetricSample => ({
 	sampledAt,
@@ -30,6 +30,7 @@ export class Collector {
 	private clients: DiscoveredClient[] = [];
 	private status: CollectorStatus;
 	private started = false;
+	private previousStationMacs = new Set<string>();
 
 	constructor(
 		private readonly config: AppConfig,
@@ -103,6 +104,35 @@ export class Collector {
 		this.timer.unref?.();
 	}
 
+	private sampleFor(
+		mac: string,
+		sampledAt: number,
+		station: NormalizedStation | undefined
+	): MetricSample & { beaconMac: string } {
+		if (!station) return { beaconMac: mac, ...emptySample(sampledAt) };
+
+		const previous = this.repository.getLatestCounters(mac);
+		return {
+			beaconMac: mac,
+			sampledAt,
+			online: true,
+			signalDbm: station.signalDbm,
+			noiseDbm: station.noiseDbm,
+			snrDb: station.snrDb,
+			satisfaction: station.satisfaction,
+			txRateKbps: station.txRateKbps,
+			rxRateKbps: station.rxRateKbps,
+			retryPercent: deriveRetryPercent(previous, station),
+			channel: station.channel,
+			radio: station.radio,
+			radioProtocol: station.radioProtocol,
+			apMac: station.apMac,
+			apName: station.apName,
+			txRetries: station.txRetries,
+			txAttempts: station.txAttempts
+		};
+	}
+
 	private async collect(): Promise<void> {
 		const sampledAt = Date.now();
 		this.status.lastPollStartedAt = sampledAt;
@@ -114,35 +144,29 @@ export class Collector {
 			const snapshot = await this.provider.getSnapshot();
 			this.clients = snapshot.clients;
 			const stations = new Map(snapshot.stations.map((station) => [station.mac, station]));
-			const selected = this.repository.getEnabledBeacons();
-			const samples = selected.map((beacon) => {
-				const station = stations.get(beacon.mac);
-				if (!station) return { beaconMac: beacon.mac, ...emptySample(sampledAt) };
+			const stationMacs = new Set(stations.keys());
 
-				const previous = this.repository.getLatestCounters(beacon.mac);
-				return {
-					beaconMac: beacon.mac,
-					sampledAt,
-					online: true,
-					signalDbm: station.signalDbm,
-					noiseDbm: station.noiseDbm,
-					snrDb: station.snrDb,
-					satisfaction: station.satisfaction,
-					txRateKbps: station.txRateKbps,
-					rxRateKbps: station.rxRateKbps,
-					retryPercent: deriveRetryPercent(previous, station),
-					channel: station.channel,
-					radio: station.radio,
-					radioProtocol: station.radioProtocol,
-					apMac: station.apMac,
-					apName: station.apName,
-					txRetries: station.txRetries,
-					txAttempts: station.txAttempts
-				};
-			});
+			for (const client of snapshot.clients) {
+				this.repository.upsertDevice(client.mac, client.name, this.config.site);
+			}
+			for (const station of snapshot.stations) {
+				this.repository.upsertDevice(station.mac, station.name, this.config.site);
+			}
+
+			const selected = this.repository.getEnabledBeacons();
+			const sampleMacs = new Set([
+				...stationMacs,
+				...selected.map((beacon) => beacon.mac),
+				...[...this.previousStationMacs].filter((mac) => !stationMacs.has(mac))
+			]);
+
+			const samples = [...sampleMacs].map((mac) =>
+				this.sampleFor(mac, sampledAt, stations.get(mac))
+			);
 
 			this.repository.recordSamples(samples);
 			this.repository.pruneSamples(sampledAt - this.config.retentionDays * 24 * 60 * 60 * 1000);
+			this.previousStationMacs = stationMacs;
 
 			this.status.lastPollSucceededAt = Date.now();
 			this.status.lastError = null;

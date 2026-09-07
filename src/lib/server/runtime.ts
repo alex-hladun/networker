@@ -77,3 +77,9 @@ export function resetRuntime(): void {
 	existing.database.raw.close();
 	globalRuntime.__unifiBeaconRuntime = undefined;
 }
+
+if (import.meta.hot) {
+	import.meta.hot.dispose(() => {
+		resetRuntime();
+	});
+}

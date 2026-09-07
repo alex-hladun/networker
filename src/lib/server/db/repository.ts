@@ -18,6 +18,17 @@ type SampleInsert = MetricSample & { beaconMac: string };
 export class Repository {
 	constructor(private readonly database: AppDatabase) {}
 
+	upsertDevice(mac: string, name: string, site: string, now = Date.now()): void {
+		this.database.orm
+			.insert(beacons)
+			.values({ mac, name, site, enabled: false, createdAt: now })
+			.onConflictDoUpdate({
+				target: beacons.mac,
+				set: { name, site }
+			})
+			.run();
+	}
+
 	upsertBeacon(mac: string, name: string, site: string, now = Date.now()): void {
 		this.database.orm
 			.insert(beacons)
@@ -187,14 +198,20 @@ export class Repository {
 					MAX(m.tx_retries) AS tx_retries,
 					MAX(m.tx_attempts) AS tx_attempts
 				FROM metric_samples m
-				INNER JOIN beacons b ON b.mac = m.beacon_mac AND b.enabled = 1
+				INNER JOIN beacons b ON b.mac = m.beacon_mac
 				WHERE m.sampled_at BETWEEN ? AND ?
 				GROUP BY m.beacon_mac, CAST(m.sampled_at / ? AS INTEGER)
 				ORDER BY m.beacon_mac, sampled_at`
 			)
 			.all(bucketMs, bucketMs, from, to, bucketMs) as Record<string, unknown>[];
 
-		const names = new Map(this.getEnabledBeacons().map((beacon) => [beacon.mac, beacon.name]));
+		const names = new Map(
+			this.database.orm
+				.select({ mac: beacons.mac, name: beacons.name })
+				.from(beacons)
+				.all()
+				.map((device) => [device.mac, device.name] as const)
+		);
 		const grouped = new Map<string, MetricSample[]>();
 		for (const row of rows) {
 			const mac = String(row.beacon_mac);

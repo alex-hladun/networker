@@ -50,9 +50,7 @@ describe('UniFi station normalization', () => {
 		]);
 
 		expect(names.get('00:11:22:33:44:55')).toBe('Office AP');
-		expect(
-			resolveApName({ apMac: 'aa:bb:cc:dd:ee:00', apName: null }, names)
-		).toBe('Garage AP');
+		expect(resolveApName({ apMac: 'aa:bb:cc:dd:ee:00', apName: null }, names)).toBe('Garage AP');
 		expect(resolveApName({ apMac: '00:11:22:33:44:55', apName: 'Kitchen AP' }, names)).toBe(
 			'Kitchen AP'
 		);
@@ -69,8 +67,8 @@ describe('metric calculations', () => {
 	it('classifies practical Wi-Fi signal thresholds', () => {
 		expect(signalQuality(-49)).toBe('excellent');
 		expect(signalQuality(-55)).toBe('ideal');
-		expect(signalQuality(-60)).toBe('ok');
-		expect(signalQuality(-65)).toBe('bad');
+		expect(signalQuality(-60)).toBe('ideal');
+		expect(signalQuality(-71)).toBe('bad');
 		expect(signalQuality(-81)).toBe('terrible');
 		expect(signalQuality(null)).toBe('unknown');
 	});

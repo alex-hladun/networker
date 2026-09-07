@@ -6,6 +6,14 @@ import { sveltekit } from '@sveltejs/kit/vite';
 const demo = process.env.PUBLIC_DEMO === 'true';
 
 export default defineConfig({
+	server: {
+		host: true,
+		allowedHosts: true,
+		watch: {
+			usePolling: process.env.CHOKIDAR_USEPOLLING === 'true',
+			interval: 300
+		}
+	},
 	plugins: [
 		sveltekit({
 			compilerOptions: {
@@ -13,9 +21,7 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: demo
-				? adapterStatic({ fallback: '404.html', strict: false })
-				: adapterNode(),
+			adapter: demo ? adapterStatic({ fallback: '404.html', strict: false }) : adapterNode(),
 			paths: {
 				base: (process.env.BASE_PATH || '') as '' | `/${string}`
 			}

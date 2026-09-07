@@ -69,13 +69,13 @@ describe('chart filters', () => {
 				series('Office', [
 					point({ sampledAt: 1, signalDbm: -49 }),
 					point({ sampledAt: 2, signalDbm: -58 }),
-					point({ sampledAt: 3, signalDbm: -72 })
+					point({ sampledAt: 3, signalDbm: -65 })
 				])
 			],
 			{ bands: ['excellent', 'ok'] }
 		);
 
-		expect(filtered[0].points.map((item) => item.signalDbm)).toEqual([-49, -58, null]);
+		expect(filtered[0].points.map((item) => item.signalDbm)).toEqual([-49, null, -65]);
 	});
 
 	it('returns the original series when every AP and band is included', () => {
@@ -86,5 +86,14 @@ describe('chart filters', () => {
 				bands: ['excellent', 'ideal', 'ok', 'bad', 'terrible']
 			})
 		).toBe(original);
+	});
+
+	it('can limit the chart to selected beacon MACs', () => {
+		const filtered = filterChartSeries(
+			[series('Office', [point({})]), series('Phone', [point({ signalDbm: -68 })])],
+			{ macs: new Set(['02:00:00:00:00:Office']) }
+		);
+
+		expect(filtered.map((item) => item.name)).toEqual(['Office']);
 	});
 });

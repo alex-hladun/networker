@@ -1,26 +1,33 @@
 # UniFi Wi-Fi Beacon Monitor
 
-**[Live demo](https://alex-hladun.github.io/networker/)** — simulated beacons, no UniFi console required.
+**[Live demo](https://alex-hladun.github.io/networker/)** — simulated clients, no UniFi console required.
 
-A small, self-hosted monitor that treats selected wireless clients as stationary beacons. It records
-the client telemetry reported by UniFi Network and compares signal quality over time in a Svelte
-dashboard.
+A small, self-hosted monitor that records the client telemetry reported by UniFi Network for **every
+wireless device**, then lets you pin stationary clients as beacons for a live dashboard. Compare
+signal quality over time in a Svelte chart — including devices you never pinned.
 
 The collector is read-only: it does not change access points, channels, radios, or WLAN settings. A
 Reconnect control on each beacon card can ask UniFi to reconnect that wireless client. Hovering the
-history chart lists every selected device at that time; use the Tooltip chips to choose which
+history chart lists every recorded device at that time; use the Tooltip chips to choose which
 fields appear (signal, SNR, noise, satisfaction, rates, retries, AP, and channel). Drag across the
 chart to mark a time window and save it as a scenario — the dashboard averages each metric for each
-beacon in that span so you can compare later. The history panel has a full-screen control that
-expands it to fill the app below the header.
+device in that span so you can compare later. The history panel has a full-screen control that
+expands it to fill the app below the header. Use the Devices filter to plot every client or only
+pinned beacons.
 
 ## What it records
+
+Every poll stores the same fields for each wireless client UniFi reports, not only pinned beacons:
 
 - Signal strength (dBm), noise, and calculated SNR
 - UniFi Wi-Fi satisfaction
 - Transmit and receive link rates
 - Retry percentage calculated from consecutive UniFi counters
 - Channel, radio protocol, associated AP, and online/offline periods
+
+Pinning a beacon only adds the live health card. History for that MAC is already there if the
+device was on the network. A client that leaves is marked offline once (beacons keep logging
+offline samples so dropouts stay visible).
 
 UniFi's official Integration API is used for version, site, and client discovery. Detailed wireless
 values come from the local `/proxy/network/api/s/{site}/stat/sta` endpoint used by the Network UI,
@@ -101,15 +108,32 @@ UNIFI_FIXTURE_MODE=true docker compose up --build
 
 ## Local development
 
-Node.js 22 and pnpm are recommended.
+Node.js 22 and pnpm are recommended. Use the Vite dev server so UI and server changes hot-reload.
+
+### On the host
 
 ```sh
 pnpm install
 pnpm dev
 ```
 
-Open the login page, or set `UNIFI_FIXTURE_MODE=true` to use simulated clients. The local SQLite
-database and `connection.json` are created under `data/`. Useful checks:
+Open <http://localhost:5173>. The local SQLite database and `connection.json` are created under
+`data/`.
+
+### In Docker, with hot reload
+
+Production `docker compose up --build` bakes a static image. For live reload while you edit:
+
+```sh
+pnpm docker:dev
+```
+
+That is `docker compose -f compose.yaml -f compose.dev.yaml up --build`. It runs `vite dev` on port
+3000, bind-mounts the repo, and polls for file changes so HMR works on Docker Desktop for Mac.
+Open <http://localhost:3000> and leave the stack running — saving a file updates the browser
+without rebuilding the image.
+
+Open the login page, or set `UNIFI_FIXTURE_MODE=true` to use simulated clients. Useful checks:
 
 ```sh
 pnpm check
@@ -129,7 +153,7 @@ which is useful for Docker and CI:
 - `UNIFI_USERNAME`, `UNIFI_PASSWORD`: dedicated local view-only account
 - `UNIFI_SITE`: classic site slug or Integration API display name; defaults to `default`
 - `UNIFI_VERIFY_TLS`: defaults to `true` when unset
-- `POLL_INTERVAL_SECONDS`: 0.5–3600 seconds; defaults to `30`
+- `POLL_INTERVAL_SECONDS`: 0.5–3600 seconds; defaults to `0.5`
 - `RETENTION_DAYS`: 1–3650 days; defaults to `30`
 - `DATA_DIR` or `DATABASE_PATH`: SQLite and `connection.json` location
 - `UNIFI_FIXTURE_MODE`: use deterministic simulated clients
@@ -141,8 +165,8 @@ from `GET /api/connection`.
 
 Drag left-to-right or right-to-left on the history chart to select a time range. Name the window
 and save it. The saved snapshot stores the average of each numeric metric (signal, SNR, noise,
-satisfaction, TX/RX rates, and retries) for every selected beacon, using only online samples in
-that range.
+satisfaction, TX/RX rates, and retries) for every recorded device in the window, using only online
+samples in that range.
 
 Scenarios stay in SQLite on a self-hosted or Electron install (`GET` / `POST` / `DELETE`
 `/api/scenarios`). The static demo keeps them in browser storage so they survive a refresh. Use
@@ -166,10 +190,10 @@ mapping, `https://alex-hladun.github.io/networker/` no longer redirects.
 
 - Run one application instance per database. The collector is intentionally in-process for a simple
   single-container deployment.
-- A missing client creates an offline sample, so charts show gaps rather than carrying old values
-  forward.
-- Client identities are joined by normalized MAC address. Private-address rotation on a beacon
-  appears as a new device and must be selected again.
+- A missing beacon creates an offline sample on every poll so charts show dropouts. Other clients
+  get one offline sample when they leave, then sampling resumes when they return.
+- Client identities are joined by normalized MAC address. Private-address rotation on a device
+  appears as a new client.
 - UniFi's classic endpoint is not part of the official Integration API. The adapter isolates this
   dependency and reports controller/authentication changes clearly in the dashboard.
 
