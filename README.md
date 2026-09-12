@@ -1,5 +1,6 @@
 # UniFi Wi-Fi Beacon Monitor
 
+**[Download the Mac app](https://github.com/alex-hladun/networker/releases/latest)** (Apple Silicon `.dmg`) ·
 **[Live demo](https://alex-hladun.github.io/networker/)** — simulated clients, no UniFi console required.
 
 A small, self-hosted monitor that records the client telemetry reported by UniFi Network for **every
@@ -85,6 +86,22 @@ because the official connected-client schema does not currently expose those val
 
 ## Run on a Mac
 
+### Download a release
+
+Apple Silicon `.dmg` builds are published on
+**[GitHub Releases](https://github.com/alex-hladun/networker/releases/latest)**. Open the latest
+release, download `UniFi Beacon Monitor-<version>-arm64.dmg`, and drag the app to Applications.
+
+The app is unsigned. Gatekeeper will require **right-click → Open** the first time. History and
+`connection.json` live in `~/Library/Application Support/UniFi Beacon Monitor/data`. Use
+**Help → Open data folder** if you need that path.
+
+Pushing a `v*` tag that matches `package.json` (for example `v0.0.1`) runs the **Release Mac app**
+workflow, which builds the `.dmg` on GitHub-hosted macOS and attaches it to the release. You can
+also run that workflow from the Actions tab.
+
+### Build from source
+
 Node.js 22 and pnpm are recommended.
 
 ```sh
@@ -100,10 +117,8 @@ To build a local unsigned `.app` / `.dmg` for Apple Silicon:
 pnpm electron:build
 ```
 
-The artifacts are under `release/`. Gatekeeper will require **right-click → Open** the first time.
-The packaged app stores history and `connection.json` in
-`~/Library/Application Support/UniFi Beacon Monitor/data`. Use **Help → Open data folder** if you
-need that path. Environment variables remain an optional override for automation.
+The artifacts are under `release/`. Environment variables remain an optional override for
+automation.
 
 The Mac app, browser tab, and dashboard header share the mint Wi-Fi beacon mark. Dock and
 window icons come from `resources/icon.icns` (built from `resources/icon.png`). The web UI uses

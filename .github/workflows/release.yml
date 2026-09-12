@@ -1,0 +1,48 @@
+# Unsigned Apple Silicon .dmg on https://github.com/<owner>/networker/releases
+name: Release Mac app
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: version
+        run: echo "tag=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Check tag matches package.json
+        if: github.ref_type == 'tag'
+        run: |
+          expected="${{ steps.version.outputs.tag }}"
+          if [ "${{ github.ref_name }}" != "$expected" ]; then
+            echo "Tag ${{ github.ref_name }} does not match package.json $expected"
+            exit 1
+          fi
+      - run: pnpm electron:build
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || steps.version.outputs.tag }}
+          name: UniFi Beacon Monitor ${{ steps.version.outputs.tag }}
+          files: release/*.dmg
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          make_latest: true
