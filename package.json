@@ -20,7 +20,7 @@
 		"test": "pnpm test:unit",
 		"db:generate": "drizzle-kit generate",
 		"electron:dev": "concurrently -k \"vite dev --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:5173 && electron .\"",
-		"electron:build": "vite build && electron-builder --mac --arm64"
+		"electron:build": "vite build && electron-builder --mac --arm64 --publish never"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

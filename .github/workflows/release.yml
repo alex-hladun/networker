@@ -37,6 +37,10 @@ jobs:
             exit 1
           fi
       - run: pnpm electron:build
+        env:
+          # Keep electron-builder from uploading; this job attaches the .dmg after.
+          GH_TOKEN: ''
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
